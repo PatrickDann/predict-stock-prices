@@ -11,4 +11,4 @@ This project uses LSTM (Long Short-Term Memory) neural networks to predict stock
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone <>
+   git clone <git clone <>>
