@@ -21,8 +21,14 @@ if __name__ == "__main__":
 
 
 if __name__ == "__main__":
-    tickers = 'AAPL MSFT GOOGL AMZN META NVDA' # Get multiple tickers
+    tickers = 'AAPL MSFT GOOGL AMZN META NVDA' # Get multiple tech tickers
     start_date = "2015-01-01"
     end_date = "2023-12-31"
     save_path = "data/tech_stock_data.csv"
+    fetch_stock_data(tickers, start_date, end_date, save_path)
+    
+if __name__ == "__main__":
+    tickers = 'VOO VTI VUG VTV VYM' # Get multiple index funds tickers #test
+    end_date = "2023-12-31"
+    save_path = "data/index_fund_stock_data.csv"
     fetch_stock_data(tickers, start_date, end_date, save_path)
