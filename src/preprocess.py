@@ -18,3 +18,12 @@ if __name__ == "__main__":
     end_date = "2023-12-31"
     save_path = "data/apple_stock_data.csv"
     fetch_stock_data(ticker, start_date, end_date, save_path)
+
+
+if __name__ == "__main__":
+    tickers = yf.Tickers('AAPL MSFT GOOGL AMZN FB NVDA') # Get multiple tickers
+    for ticker in tickers.tickers:
+        data = ticker.history(period="max")
+        data.to_csv(f"data/{ticker.ticker}.csv")
+        print(f"Data saved to data/{ticker.ticker}.csv")
+         
