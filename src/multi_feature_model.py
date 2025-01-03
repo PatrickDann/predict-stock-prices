@@ -5,9 +5,17 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
+import sys
+
+# Parse the stock ticker from command line arguments
+if len(sys.argv) != 2:
+    print("Usage: python multi_feature_model.py <STOCK_TICKER>")
+    sys.exit(1)
+
+ticker = sys.argv[1]
 
 # Load data
-data = pd.read_csv('data/apple_stock_data.csv', skiprows=2)
+data = pd.read_csv(f'data/{ticker.lower()}_stock_data.csv', skiprows=2)
 data.columns = ['Date', 'Close', 'High', 'Low', 'Open', 'Volume']
 data['Date'] = pd.to_datetime(data['Date'])
 data.set_index('Date', inplace=True)
@@ -69,7 +77,6 @@ Y_train_actual = scaler_close.inverse_transform(Y_train.reshape(-1, 1))
 Y_val_actual = scaler_close.inverse_transform(Y_val.reshape(-1, 1))
 Y_test_actual = scaler_close.inverse_transform(Y_test.reshape(-1, 1))
 
-
 # Evaluate the model
 train_rmse = np.sqrt(mean_squared_error(Y_train_actual, train_predictions))
 val_rmse = np.sqrt(mean_squared_error(Y_val_actual, val_predictions))
@@ -88,8 +95,7 @@ plt.figure(figsize=(12, 6))
 plt.plot(test_index, Y_test_actual, label="Testing Data Actual")
 plt.plot(test_index, test_predictions, label="Testing Data Predictions")
 plt.legend()
-plt.title("Stock Price Predictions")
+plt.title(f'Stock Price Prediction for {ticker}')  # Dynamic title
 plt.xlabel("Date")
 plt.ylabel("Price")
 plt.show()
-
