@@ -6,16 +6,31 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 import matplotlib.pyplot as plt
 import sys
+import os
 
 # Parse the stock ticker from command line arguments
 if len(sys.argv) != 2:
-    print("Usage: python multi_feature_model.py <STOCK_TICKER>")
+    print("Usage: python multi_feature_model.py <STOCK_TICKER_OR_CSV_FILE>")
     sys.exit(1)
 
-ticker = sys.argv[1]
+input_arg = sys.argv[1]
+
+if input_arg.lower().endswith('.csv'):
+    file_path = input_arg
+    file_name = os.path.basename(file_path).split('.')[0]
+    if not os.path.isfile(file_path):
+        print(f"Error: The file '{file_path}' does not exist.")
+        sys.exit(1)
+else:
+    ticker = input_arg
+    file_path = f'data/{ticker.lower()}_stock_data.csv'
+    file_name = ticker
+    if not os.path.isfile(file_path):
+        print(f"Error: The file for ticker '{ticker}' does not exist at '{file_path}'.")
+        sys.exit(1)
 
 # Load data
-data = pd.read_csv(f'data/{ticker.lower()}_stock_data.csv', skiprows=2)
+data = pd.read_csv(file_path, skiprows=2)
 data.columns = ['Date', 'Close', 'High', 'Low', 'Open', 'Volume']
 data['Date'] = pd.to_datetime(data['Date'])
 data.set_index('Date', inplace=True)
