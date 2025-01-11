@@ -15,6 +15,7 @@ if len(sys.argv) != 2:
 
 input_arg = sys.argv[1]
 
+# Determine if the input is a ticker or a file path
 if input_arg.lower().endswith('.csv'):
     file_path = input_arg
     file_name = os.path.basename(file_path).split('.')[0]
@@ -31,13 +32,13 @@ else:
 
 # Load data
 data = pd.read_csv(file_path, skiprows=2)
-data.columns = ['Date', 'Close', 'High', 'Low', 'Open', 'Volume']
+data.columns = ['Date'] + [f'{col}_{i}' for i, col in enumerate(data.columns[1:], start=1)]
 data['Date'] = pd.to_datetime(data['Date'])
 data.set_index('Date', inplace=True)
 
 # Normalize features
 scaler = MinMaxScaler(feature_range=(0, 1))
-scaled_data = scaler.fit_transform(data[['Close', 'High', 'Low', 'Open', 'Volume']])
+scaled_data = scaler.fit_transform(data)
 
 # Prepare features and targets
 def create_dataset(dataset, time_step=60):
@@ -81,7 +82,7 @@ test_predictions = model.predict(X_test)
 
 # Create a new scaler specifically for 'Close' column
 scaler_close = MinMaxScaler(feature_range=(0, 1))
-scaled_close = scaler_close.fit_transform(data[['Close']])
+scaled_close = scaler_close.fit_transform(data.iloc[:, 0].values.reshape(-1, 1))
 
 # Inverse transform predictions and actual values using the new scaler
 train_predictions = scaler_close.inverse_transform(train_predictions)
@@ -110,7 +111,7 @@ plt.figure(figsize=(12, 6))
 plt.plot(test_index, Y_test_actual, label="Testing Data Actual")
 plt.plot(test_index, test_predictions, label="Testing Data Predictions")
 plt.legend()
-plt.title(f'Stock Price Prediction for {ticker}')  # Dynamic title
+plt.title(f'Stock Price Prediction for {file_name}')  # Dynamic title
 plt.xlabel("Date")
 plt.ylabel("Price")
 plt.show()
