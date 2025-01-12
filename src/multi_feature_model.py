@@ -45,7 +45,7 @@ def create_dataset(dataset, time_step=60):
     X, Y = [], []
     for i in range(time_step, len(dataset)):
         X.append(dataset[i-time_step:i, :])  # Input features
-        Y.append(dataset[i, 0])  # 'Close' price as target
+        Y.append(dataset[i, 0])  # 'Close' price of the first ticker as target
     return np.array(X), np.array(Y)
 
 time_step = 60
@@ -61,9 +61,11 @@ X_test, Y_test = X[train_size + val_size:], Y[train_size + val_size:]
 
 # Build the LSTM model
 model = Sequential([
-    LSTM(50, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
+    LSTM(100, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
     Dropout(0.2),
-    LSTM(50, return_sequences=False),
+    LSTM(100, return_sequences=True),
+    Dropout(0.2),
+    LSTM(100, return_sequences=False),
     Dropout(0.2),
     Dense(25, activation='relu'),
     Dense(1)
@@ -73,14 +75,14 @@ model = Sequential([
 model.compile(optimizer='adam', loss='mean_squared_error')
 
 # Train the model
-history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=20, batch_size=32, verbose=1)
+history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=30, batch_size=32, verbose=1)
 
 # Make predictions
 train_predictions = model.predict(X_train)
 val_predictions = model.predict(X_val)
 test_predictions = model.predict(X_test)
 
-# Create a new scaler specifically for 'Close' column
+# Create a new scaler specifically for 'Close' column of the first ticker
 scaler_close = MinMaxScaler(feature_range=(0, 1))
 scaled_close = scaler_close.fit_transform(data.iloc[:, 0].values.reshape(-1, 1))
 
@@ -101,6 +103,15 @@ print(f"Train RMSE: {train_rmse}")
 print(f"Validation RMSE: {val_rmse}")
 print(f"Test RMSE: {test_rmse}")
 
+# Calculate rolling standard deviation of the prediction errors
+rolling_window = 100
+test_errors = Y_test_actual.flatten() - test_predictions.flatten()
+rolling_std = pd.Series(test_errors).rolling(window=rolling_window).std().fillna(0).values
+
+# Calculate upper and lower bounds
+upper_bound = test_predictions.flatten() + rolling_std
+lower_bound = test_predictions.flatten() - rolling_std
+
 # Visualize 
 test_index = data.index[train_size + val_size:train_size + val_size + len(Y_test_actual)]
 
@@ -110,6 +121,7 @@ test_predictions = test_predictions.flatten()
 plt.figure(figsize=(12, 6))
 plt.plot(test_index, Y_test_actual, label="Testing Data Actual")
 plt.plot(test_index, test_predictions, label="Testing Data Predictions")
+plt.fill_between(test_index, lower_bound, upper_bound, color='gray', alpha=0.2, label="Prediction Range")
 plt.legend()
 plt.title(f'Stock Price Prediction for {file_name}')  # Dynamic title
 plt.xlabel("Date")
