@@ -68,7 +68,7 @@ model = Sequential([
     Dropout(0.2),
     LSTM(100, return_sequences=False),
     Dropout(0.2),
-    Dense(25, activation='relu'),
+    Dense(50, activation='relu'),
     Dense(1)
 ])
 
