@@ -4,6 +4,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -74,8 +75,11 @@ model = Sequential([
 # Compile the model
 model.compile(optimizer='adam', loss='mean_squared_error')
 
+# Early stopping callback
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
 # Train the model
-history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=30, batch_size=32, verbose=1)
+history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=50, batch_size=32, verbose=1)
 
 # Make predictions
 train_predictions = model.predict(X_train)
@@ -104,7 +108,7 @@ print(f"Validation RMSE: {val_rmse}")
 print(f"Test RMSE: {test_rmse}")
 
 # Calculate rolling standard deviation of the prediction errors
-rolling_window = 100
+rolling_window = 50
 test_errors = Y_test_actual.flatten() - test_predictions.flatten()
 rolling_std = pd.Series(test_errors).rolling(window=rolling_window).std().fillna(0).values
 
