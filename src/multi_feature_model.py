@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -60,23 +60,30 @@ X_train, Y_train = X[:train_size], Y[:train_size]
 X_val, Y_val = X[train_size:train_size + val_size], Y[train_size:train_size + val_size]
 X_test, Y_test = X[train_size + val_size:], Y[train_size + val_size:]
 
-# Build the LSTM model
-model = Sequential([
-    LSTM(100, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
-    Dropout(0.2),
-    LSTM(100, return_sequences=True),
-    Dropout(0.2),
-    LSTM(100, return_sequences=False),
-    Dropout(0.2),
-    Dense(50, activation='relu'),
-    Dense(1)
-])
+# Check if a saved model exists if not build the LSTM model
+model_path = 'saved_models/multi_feature_lstm_model.keras'
+if os.path.exists(model_path):
+    model = load_model(model_path)
+    print("Loaded model from disk")
+else:
+    # Build the LSTM model
+    model = Sequential([
+        LSTM(100, return_sequences=True, input_shape=(X_train.shape[1], X_train.shape[2])),
+        Dropout(0.2),
+        LSTM(100, return_sequences=True),
+        Dropout(0.2),
+        LSTM(100, return_sequences=False),
+        Dropout(0.2),
+        Dense(50, activation='relu'),
+        Dense(1)
+    ])
 
 # Compile the model
 model.compile(optimizer='adam', loss='mean_squared_error')
 
-# Early stopping callback
+# Early stopping callback and model check point
 early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+model_checkpoint = ModelCheckpoint(model_path, monitor='val_loss', save_best_only=True, verbose=1)
 
 # Train the model
 history = model.fit(X_train, Y_train, validation_data=(X_val, Y_val), epochs=50, batch_size=32, verbose=1)
