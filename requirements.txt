@@ -1,4 +1,4 @@
-# Runtime dependencies (Phase 0).
+# Runtime dependencies (Phase 0 + Phase 1 storage/ingestion).
 # Pinned to a known-good, currently-installed set. See requirements-dev.txt for tooling.
 
 # --- ML / data ---
@@ -16,11 +16,13 @@ requests==2.32.3
 pydantic==2.13.4
 pydantic-settings==2.14.1
 
-# --- Phase 1 (uncomment as ingestion/storage lands) ---
-# SQLAlchemy>=2.0
-# psycopg[binary]>=3.2      # Postgres driver
+# --- storage / ingestion (Phase 1) ---
+SQLAlchemy==2.0.50
+psycopg[binary]==3.3.4     # Postgres driver
+pandera==0.31.1            # dataframe validation
+
+# --- Phase 1 (uncomment as the rest of the backbone lands) ---
 # redis>=5.0
 # pyarrow>=18.0             # Parquet
 # duckdb>=1.1               # analytics / ML feature layer
 # apscheduler>=3.10         # ingestion scheduling
-# pandera>=0.20             # dataframe validation

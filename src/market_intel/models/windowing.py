@@ -207,7 +207,8 @@ def walk_forward_splits(
     n = len(values)
 
     folds: list[WalkForwardFold] = []
-    for fold, (train_idx, test_idx) in enumerate(TimeSeriesSplit(n_splits=n_splits).split(np.arange(n))):
+    splitter = TimeSeriesSplit(n_splits=n_splits)
+    for fold, (train_idx, test_idx) in enumerate(splitter.split(np.arange(n))):
         train_end = int(train_idx[-1]) + 1
         stop = int(test_idx[-1]) + 1
         if train_end <= time_step:

@@ -210,14 +210,15 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 
 **Done:** the LSTM trains with honest (non-leaky) metrics; `pip install -r requirements.txt` reproduces the env; `docker compose up` provisions Postgres+pgvector+Redis. _Remaining for the user: spin up Docker on the always-on box and copy `.env.example` → `.env`._
 
-### Phase 1 — Data ingestion backbone _(~2–4 weeks)_
+### Phase 1 — Data ingestion backbone _(~2–4 weeks)_ — 🚧 **in progress**
 **Goal: continuous, validated, multi-source ingestion into Postgres.**
-- Python worker: FastAPI app skeleton + APScheduler, connected to the local Postgres.
-- Ingestors: **market** (yfinance/Finnhub free; Tiingo optional), **macro** (FRED + DBnomics), **news/events** (GDELT DOC API + a curated FreshRSS feed set), **filings** (SEC EDGAR). All free.
-- Define normalized schema: `prices` & `macro_series` as **range-partitioned tables** (BRIN index on time to start; `pg_partman`+`pg_cron` when they grow); `news_articles` (JSONB + `tsvector` GIN + `pgvector`).
-- Pandera contracts at every ingest boundary; quarantine + log bad rows.
-- Idempotent upserts, backfill jobs, basic retry/observability.
-- Wire up the nightly `pg_dump` → R2/B2 backup job.
+- ✅ **Storage layer** (`storage/`): SQLAlchemy `Price` model (composite PK → idempotent upserts), engine/session helpers, prices repo. Portable Postgres/SQLite.
+- ✅ **Market ingestor** (`ingest/`): CSV → **Pandera validation gate** → idempotent upsert. CLI `python src/ingest.py AAPL`. Verified end-to-end against real Postgres (pgvector/pg17 container): 2264 AAPL + 2264 MSFT rows, re-run stays idempotent. 12 new tests (SQLite-backed).
+- ⬜ Python worker: FastAPI skeleton + **APScheduler** scheduling the ingestors.
+- ⬜ More ingestors: **macro** (FRED + DBnomics), **news/events** (GDELT DOC API + curated FreshRSS), **filings** (SEC EDGAR). All free.
+- ⬜ Schema growth: `macro_series` table; `news_articles` (JSONB + `tsvector` GIN + `pgvector`); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
+- ⬜ Quarantine + log bad rows; backfill jobs; basic retry/observability.
+- ⬜ Live yfinance→DB path (wrap `data.fetch`); nightly `pg_dump` → R2/B2 backup job.
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 
