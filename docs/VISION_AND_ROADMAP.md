@@ -217,10 +217,11 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 - ✅ **Macro (FRED) ingestor**: fetch → parse (drops `.` missing values) → validate → idempotent upsert into a `macro_series` table. Verified against real Postgres. Isolated/injectable HTTP client so parsing is unit-tested without a key.
 - ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers market + FRED + GDELT ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
 - ✅ **GDELT news ingestor** (the "edge-of-the-world" core): free/no-key DOC 2.0 ArtList → parse (validation gate + in-batch dedup, keeps first/richest record) → idempotent upsert into `news_articles`. `news_articles` schema with `raw` **JSONB** (portable JSON on SQLite). 30-min scheduled job; one-shot CLI `python src/ingest_news.py "<query>"`. Verified on real Postgres (`raw` is genuinely `jsonb`, idempotent); live API call confirmed reachable.
+- ✅ **News search layer**: keyword **FTS** (Postgres `to_tsvector`/`websearch_to_tsquery`, SQLite `LIKE` fallback) + **semantic vector search** (pgvector `embedding` column + cosine `<=>`; in-Python cosine on SQLite). Pluggable `Embedder` (dependency-free hashing baseline now; `sentence-transformers` is a 384-dim drop-in upgrade). GIN + HNSW indexes via `ensure_search_indexes`; embeddings backfilled in the GDELT job. CLI `python src/search_news.py "<q>" [--semantic]`. Verified on real Postgres (vector column, HNSW+GIN indexes, cosine ranking).
 - ⬜ More ingestors: **filings** (SEC EDGAR), DBnomics, curated FreshRSS.
-- ⬜ Schema growth: `tsvector` GIN FTS + `pgvector` embedding column on `news_articles` (semantic search); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
+- ⬜ Schema growth: range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
 - ⬜ Quarantine bad rows; backfill jobs; live yfinance→DB path; nightly `pg_dump` → R2/B2 backup job.
-- _Tests: 58 passing (now incl. GDELT parse/fetch/storage + scheduler); ruff/black clean._
+- _Tests: 66 passing (now incl. embeddings + keyword/semantic search); ruff/black clean._
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 

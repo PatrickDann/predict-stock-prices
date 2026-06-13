@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from market_intel.config import settings
@@ -20,5 +20,12 @@ def make_session_factory(engine: Engine) -> sessionmaker[Session]:
 
 
 def init_db(engine: Engine) -> None:
-    """Create all tables that don't yet exist (no migrations — Alembic later)."""
+    """Create all tables that don't yet exist (no migrations — Alembic later).
+
+    On Postgres, ensure the pgvector extension exists first so the
+    ``news_articles.embedding`` vector column can be created.
+    """
+    if engine.dialect.name == "postgresql":
+        with engine.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(engine)

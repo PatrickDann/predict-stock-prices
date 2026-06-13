@@ -8,12 +8,19 @@ can break that resolution.
 from datetime import date as date_type
 from datetime import datetime as datetime_type
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, BigInteger, Date, DateTime, Float, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from market_intel.embeddings import EMBED_DIM
+
 # JSONB on Postgres, generic JSON elsewhere (keeps SQLite-backed tests working).
 JSON_OR_JSONB = JSON().with_variant(JSONB, "postgresql")
+# pgvector Vector on Postgres; JSON list of floats on SQLite (for tests).
+# none_as_null=True so an absent embedding is SQL NULL (matches IS NULL), not
+# JSON 'null' — otherwise embedding.is_(None) filters would silently miss.
+EMBEDDING_TYPE = Vector(EMBED_DIM).with_variant(JSON(none_as_null=True), "sqlite")
 
 
 class Base(DeclarativeBase):
@@ -76,6 +83,7 @@ class NewsArticle(Base):
     language: Mapped[str | None] = mapped_column(String(40), nullable=True)
     source_country: Mapped[str | None] = mapped_column(String(80), nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON_OR_JSONB, nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(EMBEDDING_TYPE, nullable=True)
     source: Mapped[str] = mapped_column(String(40), default="GDELT", nullable=False)
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid

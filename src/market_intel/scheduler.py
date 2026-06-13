@@ -18,6 +18,7 @@ from apscheduler.triggers.cron import CronTrigger
 from market_intel.ingest.macro import ingest_fred
 from market_intel.ingest.market import ingest_from_csv
 from market_intel.ingest.news import ingest_gdelt
+from market_intel.search import embed_pending
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,12 @@ def ingest_gdelt_job(queries: Sequence[str], session_factory, timespan: str = "1
                 log.info("GDELT %r: ingested %d articles", query, n)
             except Exception:
                 log.exception("GDELT ingest failed for %r", query)
+        try:
+            embedded = embed_pending(session)  # keep semantic search up to date
+            if embedded:
+                log.info("embedded %d new articles", embedded)
+        except Exception:
+            log.exception("embedding pending articles failed")
 
 
 def build_scheduler(

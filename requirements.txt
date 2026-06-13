@@ -21,6 +21,11 @@ SQLAlchemy==2.0.50
 psycopg[binary]==3.3.4     # Postgres driver
 pandera==0.31.1            # dataframe validation
 APScheduler==3.11.2        # ingestion scheduling
+pgvector==0.4.2            # vector column + cosine search for news
+
+# Optional: real semantic embeddings (drop-in for the hashing baseline, 384-dim).
+# Heavyweight (pulls torch); install only when you want semantic-quality search.
+# sentence-transformers>=3.0
 
 # --- Phase 1 (uncomment as the rest of the backbone lands) ---
 # redis>=5.0
