@@ -1,34 +1,17 @@
-import yfinance as yf
+"""Thin entrypoint for fetching price CSVs. Logic lives in market_intel.data.fetch.
+
+Usage:
+    python src/preprocess.py
+"""
+
+from __future__ import annotations
+
 import os
+import sys
 
-def fetch_stock_data(ticker, start_date, end_date, save_path):
-    # Fetch stock data
-    data = yf.download(ticker, start=start_date, end=end_date)
-    if not data.empty:
-        # Save to CSV
-        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-        data.to_csv(save_path)
-        print(f"Data saved to {save_path}")
-    else:
-        print(f"No data found for ticker {ticker}.")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from market_intel.data.fetch import main  # noqa: E402
 
 if __name__ == "__main__":
-    ticker = "AAPL"
-    start_date = "2015-01-01"
-    end_date = "2023-12-31"
-    save_path = "data/apple_stock_data.csv"
-    fetch_stock_data(ticker, start_date, end_date, save_path)
-
-
-if __name__ == "__main__":
-    tickers = 'AAPL MSFT GOOGL AMZN META NVDA' # Get multiple tech tickers
-    start_date = "2015-01-01"
-    end_date = "2023-12-31"
-    save_path = "data/tech_stock_data.csv"
-    fetch_stock_data(tickers, start_date, end_date, save_path)
-    
-if __name__ == "__main__":
-    tickers = 'VOO VTI VUG VTV VYM' # Get multiple index funds tickers #test
-    end_date = "2023-12-31"
-    save_path = "data/index_fund_stock_data.csv"
-    fetch_stock_data(tickers, start_date, end_date, save_path)
+    main()

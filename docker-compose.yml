@@ -1,0 +1,43 @@
+# Self-hosted data layer for the market-intelligence terminal (see docs/VISION_AND_ROADMAP.md §3.1).
+# Plain Postgres + pgvector (NO TimescaleDB — native partitioning + DuckDB/Parquet instead) + Redis.
+#
+#   docker compose up -d
+#   psql postgresql://market_intel:change_me@localhost:5432/market_intel
+#
+# Keep this bound to localhost / your Tailscale interface — never expose 5432 publicly.
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-market_intel}
+      POSTGRES_USER: ${DB_USER:-market_intel}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change_me}
+    ports:
+      - "127.0.0.1:5432:5432" # localhost-only by design
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro # *.sql here run once on first init
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-market_intel} -d ${DB_NAME:-market_intel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
