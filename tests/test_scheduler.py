@@ -9,15 +9,16 @@ def _noop_session_factory():  # pragma: no cover - never called
     raise AssertionError("jobs must not run during registration tests")
 
 
-def test_registers_market_and_fred_jobs():
+def test_registers_all_jobs():
     sched = build_scheduler(
         _noop_session_factory,
         market_tickers=["AAPL"],
         fred_series=["GDP", "CPIAUCSL"],
         fred_api_key="KEY",
+        gdelt_queries=["oil supply"],
     )
     jobs = {j.id: j for j in sched.get_jobs()}
-    assert set(jobs) == {"market-csv-daily", "fred-daily"}
+    assert set(jobs) == {"market-csv-daily", "fred-daily", "gdelt-news"}
     assert all(isinstance(j.trigger, CronTrigger) for j in jobs.values())
 
 

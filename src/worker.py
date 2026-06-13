@@ -26,6 +26,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--market", nargs="*", default=[], help="tickers to ingest from CSV")
     p.add_argument("--dataset", default=None, help="CSV dataset stem for --market")
     p.add_argument("--fred", nargs="*", default=[], help="FRED series ids, e.g. GDP CPIAUCSL")
+    p.add_argument("--gdelt", nargs="*", default=[], help="GDELT queries, e.g. 'oil supply'")
     args = p.parse_args(argv)
 
     logging.basicConfig(
@@ -42,6 +43,7 @@ def main(argv: list[str] | None = None) -> None:
         market_dataset=args.dataset,
         fred_series=args.fred,
         fred_api_key=settings.fred_api_key,
+        gdelt_queries=args.gdelt,
         data_dir=str(settings.data_dir),
     )
 

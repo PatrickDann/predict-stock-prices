@@ -6,9 +6,14 @@ can break that resolution.
 """
 
 from datetime import date as date_type
+from datetime import datetime as datetime_type
 
-from sqlalchemy import BigInteger, Date, Float, Index, String
+from sqlalchemy import JSON, BigInteger, Date, DateTime, Float, Index, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# JSONB on Postgres, generic JSON elsewhere (keeps SQLite-backed tests working).
+JSON_OR_JSONB = JSON().with_variant(JSONB, "postgresql")
 
 
 class Base(DeclarativeBase):
@@ -50,3 +55,28 @@ class MacroSeries(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"MacroSeries({self.series_id} {self.date} value={self.value})"
+
+
+class NewsArticle(Base):
+    """A news article (initially from GDELT). PK is a hash of the URL so
+    re-ingesting the same article updates rather than duplicates.
+
+    ``raw`` keeps the full source record (JSONB on Postgres). A pgvector
+    embedding column + tsvector FTS are added later when semantic search lands.
+    """
+
+    __tablename__ = "news_articles"
+    __table_args__ = (Index("ix_news_seen_date", "seen_date"),)
+
+    url_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    seen_date: Mapped[datetime_type | None] = mapped_column(DateTime, nullable=True)
+    domain: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    language: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_country: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    raw: Mapped[dict | None] = mapped_column(JSON_OR_JSONB, nullable=True)
+    source: Mapped[str] = mapped_column(String(40), default="GDELT", nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"NewsArticle({self.domain} {self.seen_date} {self.title[:40]!r})"

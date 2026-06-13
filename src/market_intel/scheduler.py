@@ -17,6 +17,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from market_intel.ingest.macro import ingest_fred
 from market_intel.ingest.market import ingest_from_csv
+from market_intel.ingest.news import ingest_gdelt
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +44,16 @@ def ingest_market_csv_job(
                 log.exception("market ingest failed for %s", ticker)
 
 
+def ingest_gdelt_job(queries: Sequence[str], session_factory, timespan: str = "1d") -> None:
+    with session_factory() as session:
+        for query in queries:
+            try:
+                n = ingest_gdelt(session, query, timespan=timespan)
+                log.info("GDELT %r: ingested %d articles", query, n)
+            except Exception:
+                log.exception("GDELT ingest failed for %r", query)
+
+
 def build_scheduler(
     session_factory,
     *,
@@ -51,10 +62,20 @@ def build_scheduler(
     market_tickers: Sequence[str] = (),
     market_dataset: str | None = None,
     data_dir: str = "data",
+    gdelt_queries: Sequence[str] = (),
     scheduler: BlockingScheduler | None = None,
 ) -> BlockingScheduler:
     """Register configured ingestion jobs and return the (unstarted) scheduler."""
     sched = scheduler or BlockingScheduler()
+
+    if gdelt_queries:
+        sched.add_job(
+            ingest_gdelt_job,
+            CronTrigger(minute="*/30"),  # news moves fast; poll every 30 min
+            args=[list(gdelt_queries), session_factory],
+            id="gdelt-news",
+            replace_existing=True,
+        )
 
     if market_tickers:
         sched.add_job(

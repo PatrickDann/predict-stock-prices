@@ -215,11 +215,12 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 - ✅ **Storage layer** (`storage/`): SQLAlchemy `Price` model (composite PK → idempotent upserts), engine/session helpers, prices repo. Portable Postgres/SQLite.
 - ✅ **Market ingestor** (`ingest/`): CSV → **Pandera validation gate** → idempotent upsert. CLI `python src/ingest.py AAPL`. Verified end-to-end against real Postgres (pgvector/pg17 container): 2264 AAPL + 2264 MSFT rows, re-run stays idempotent.
 - ✅ **Macro (FRED) ingestor**: fetch → parse (drops `.` missing values) → validate → idempotent upsert into a `macro_series` table. Verified against real Postgres. Isolated/injectable HTTP client so parsing is unit-tested without a key.
-- ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers daily market + FRED ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
-- ⬜ More ingestors: **news/events** (GDELT DOC API + curated FreshRSS), **filings** (SEC EDGAR), DBnomics.
-- ⬜ Schema growth: `news_articles` (JSONB + `tsvector` GIN + `pgvector`); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
+- ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers market + FRED + GDELT ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
+- ✅ **GDELT news ingestor** (the "edge-of-the-world" core): free/no-key DOC 2.0 ArtList → parse (validation gate + in-batch dedup, keeps first/richest record) → idempotent upsert into `news_articles`. `news_articles` schema with `raw` **JSONB** (portable JSON on SQLite). 30-min scheduled job; one-shot CLI `python src/ingest_news.py "<query>"`. Verified on real Postgres (`raw` is genuinely `jsonb`, idempotent); live API call confirmed reachable.
+- ⬜ More ingestors: **filings** (SEC EDGAR), DBnomics, curated FreshRSS.
+- ⬜ Schema growth: `tsvector` GIN FTS + `pgvector` embedding column on `news_articles` (semantic search); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
 - ⬜ Quarantine bad rows; backfill jobs; live yfinance→DB path; nightly `pg_dump` → R2/B2 backup job.
-- _Tests: 54 passing (12 new this increment: macro storage, FRED parse/fetch, scheduler registration); ruff/black clean._
+- _Tests: 58 passing (now incl. GDELT parse/fetch/storage + scheduler); ruff/black clean._
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 
