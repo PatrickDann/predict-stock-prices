@@ -32,3 +32,21 @@ class Price(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"Price({self.symbol} {self.date} close={self.close})"
+
+
+class MacroSeries(Base):
+    """One observation of a macroeconomic series (e.g. FRED ``GDP``, ``CPIAUCSL``).
+
+    Composite PK (series_id, date) makes re-ingestion idempotent.
+    """
+
+    __tablename__ = "macro_series"
+    __table_args__ = (Index("ix_macro_series_date", "date"),)
+
+    series_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    date: Mapped[date_type] = mapped_column(Date, primary_key=True)
+    value: Mapped[float] = mapped_column(Float, nullable=False)
+    source: Mapped[str] = mapped_column(String(40), default="FRED", nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"MacroSeries({self.series_id} {self.date} value={self.value})"

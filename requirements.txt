@@ -20,9 +20,9 @@ pydantic-settings==2.14.1
 SQLAlchemy==2.0.50
 psycopg[binary]==3.3.4     # Postgres driver
 pandera==0.31.1            # dataframe validation
+APScheduler==3.11.2        # ingestion scheduling
 
 # --- Phase 1 (uncomment as the rest of the backbone lands) ---
 # redis>=5.0
 # pyarrow>=18.0             # Parquet
 # duckdb>=1.1               # analytics / ML feature layer
-# apscheduler>=3.10         # ingestion scheduling

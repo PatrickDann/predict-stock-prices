@@ -213,12 +213,13 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 ### Phase 1 — Data ingestion backbone _(~2–4 weeks)_ — 🚧 **in progress**
 **Goal: continuous, validated, multi-source ingestion into Postgres.**
 - ✅ **Storage layer** (`storage/`): SQLAlchemy `Price` model (composite PK → idempotent upserts), engine/session helpers, prices repo. Portable Postgres/SQLite.
-- ✅ **Market ingestor** (`ingest/`): CSV → **Pandera validation gate** → idempotent upsert. CLI `python src/ingest.py AAPL`. Verified end-to-end against real Postgres (pgvector/pg17 container): 2264 AAPL + 2264 MSFT rows, re-run stays idempotent. 12 new tests (SQLite-backed).
-- ⬜ Python worker: FastAPI skeleton + **APScheduler** scheduling the ingestors.
-- ⬜ More ingestors: **macro** (FRED + DBnomics), **news/events** (GDELT DOC API + curated FreshRSS), **filings** (SEC EDGAR). All free.
-- ⬜ Schema growth: `macro_series` table; `news_articles` (JSONB + `tsvector` GIN + `pgvector`); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
-- ⬜ Quarantine + log bad rows; backfill jobs; basic retry/observability.
-- ⬜ Live yfinance→DB path (wrap `data.fetch`); nightly `pg_dump` → R2/B2 backup job.
+- ✅ **Market ingestor** (`ingest/`): CSV → **Pandera validation gate** → idempotent upsert. CLI `python src/ingest.py AAPL`. Verified end-to-end against real Postgres (pgvector/pg17 container): 2264 AAPL + 2264 MSFT rows, re-run stays idempotent.
+- ✅ **Macro (FRED) ingestor**: fetch → parse (drops `.` missing values) → validate → idempotent upsert into a `macro_series` table. Verified against real Postgres. Isolated/injectable HTTP client so parsing is unit-tested without a key.
+- ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers daily market + FRED ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
+- ⬜ More ingestors: **news/events** (GDELT DOC API + curated FreshRSS), **filings** (SEC EDGAR), DBnomics.
+- ⬜ Schema growth: `news_articles` (JSONB + `tsvector` GIN + `pgvector`); range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
+- ⬜ Quarantine bad rows; backfill jobs; live yfinance→DB path; nightly `pg_dump` → R2/B2 backup job.
+- _Tests: 54 passing (12 new this increment: macro storage, FRED parse/fetch, scheduler registration); ruff/black clean._
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 

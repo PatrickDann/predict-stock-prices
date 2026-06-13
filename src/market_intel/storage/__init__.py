@@ -7,6 +7,6 @@ Alembic migrations come later in Phase 1.
 """
 
 from market_intel.storage.db import init_db, make_engine, make_session_factory
-from market_intel.storage.models import Base, Price
+from market_intel.storage.models import Base, MacroSeries, Price
 
-__all__ = ["Base", "Price", "init_db", "make_engine", "make_session_factory"]
+__all__ = ["Base", "MacroSeries", "Price", "init_db", "make_engine", "make_session_factory"]

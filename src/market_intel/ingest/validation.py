@@ -30,3 +30,19 @@ def validate_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     if not isinstance(df.index, pd.DatetimeIndex):
         raise ValueError("OHLCV frame must have a DatetimeIndex")
     return OHLCV_SCHEMA.validate(df, lazy=False)
+
+
+# A macro series is a single numeric ``value`` per date. Values may be negative
+# (e.g. net exports), so no range check — just numeric and non-null after parse.
+MACRO_SCHEMA = DataFrameSchema(
+    {"value": Column(float, nullable=False)},
+    coerce=True,
+    strict=False,
+)
+
+
+def validate_macro(df: pd.DataFrame) -> pd.DataFrame:
+    """Validate/coerce a macro frame (DatetimeIndex + ``value`` column)."""
+    if not isinstance(df.index, pd.DatetimeIndex):
+        raise ValueError("macro frame must have a DatetimeIndex")
+    return MACRO_SCHEMA.validate(df, lazy=False)
