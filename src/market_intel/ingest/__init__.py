@@ -4,12 +4,13 @@ Validation gates (Pandera) sit at every ingest boundary so malformed data fails
 loudly instead of silently corrupting downstream ML features.
 """
 
+from market_intel.ingest.filings import ingest_edgar, parse_filings, resolve_cik
 from market_intel.ingest.macro import (
     ingest_fred,
     ingest_macro_frame,
     parse_fred_observations,
 )
-from market_intel.ingest.market import ingest_from_csv, ingest_price_frame
+from market_intel.ingest.market import ingest_from_csv, ingest_price_frame, ingest_yfinance
 from market_intel.ingest.news import (
     ingest_articles,
     ingest_gdelt,
@@ -19,10 +20,14 @@ from market_intel.ingest.news import (
 __all__ = [
     "ingest_from_csv",
     "ingest_price_frame",
+    "ingest_yfinance",
     "ingest_fred",
     "ingest_macro_frame",
     "parse_fred_observations",
     "ingest_gdelt",
     "ingest_articles",
     "parse_gdelt_articles",
+    "ingest_edgar",
+    "parse_filings",
+    "resolve_cik",
 ]

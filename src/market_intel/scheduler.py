@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from market_intel.ingest.filings import ingest_edgar
 from market_intel.ingest.macro import ingest_fred
 from market_intel.ingest.market import ingest_from_csv
 from market_intel.ingest.news import ingest_gdelt
@@ -61,6 +62,16 @@ def ingest_gdelt_job(queries: Sequence[str], session_factory, timespan: str = "1
             log.exception("embedding pending articles failed")
 
 
+def ingest_edgar_job(tickers: Sequence[str], session_factory) -> None:
+    with session_factory() as session:
+        for ticker in tickers:
+            try:
+                n = ingest_edgar(session, ticker)
+                log.info("EDGAR %s: ingested %d filings", ticker, n)
+            except Exception:
+                log.exception("EDGAR ingest failed for %s", ticker)
+
+
 def build_scheduler(
     session_factory,
     *,
@@ -70,10 +81,20 @@ def build_scheduler(
     market_dataset: str | None = None,
     data_dir: str = "data",
     gdelt_queries: Sequence[str] = (),
+    edgar_tickers: Sequence[str] = (),
     scheduler: BlockingScheduler | None = None,
 ) -> BlockingScheduler:
     """Register configured ingestion jobs and return the (unstarted) scheduler."""
     sched = scheduler or BlockingScheduler()
+
+    if edgar_tickers:
+        sched.add_job(
+            ingest_edgar_job,
+            CronTrigger(hour=7, minute=30),
+            args=[list(edgar_tickers), session_factory],
+            id="edgar-daily",
+            replace_existing=True,
+        )
 
     if gdelt_queries:
         sched.add_job(

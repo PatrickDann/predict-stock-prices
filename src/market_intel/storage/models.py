@@ -88,3 +88,26 @@ class NewsArticle(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
         return f"NewsArticle({self.domain} {self.seen_date} {self.title[:40]!r})"
+
+
+class Filing(Base):
+    """An SEC EDGAR filing (10-K, 8-K, …). PK is the accession number, so
+    re-ingesting a company's recent filings is idempotent."""
+
+    __tablename__ = "filings"
+    __table_args__ = (
+        Index("ix_filings_filing_date", "filing_date"),
+        Index("ix_filings_ticker", "ticker"),
+    )
+
+    accession_no: Mapped[str] = mapped_column(String(25), primary_key=True)
+    cik: Mapped[str] = mapped_column(String(10), nullable=False)
+    ticker: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    form: Mapped[str] = mapped_column(String(20), nullable=False)
+    filing_date: Mapped[date_type | None] = mapped_column(Date, nullable=True)
+    primary_doc: Mapped[str | None] = mapped_column(Text, nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(40), default="SEC-EDGAR", nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug aid
+        return f"Filing({self.ticker or self.cik} {self.form} {self.filing_date})"

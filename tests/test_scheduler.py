@@ -16,9 +16,10 @@ def test_registers_all_jobs():
         fred_series=["GDP", "CPIAUCSL"],
         fred_api_key="KEY",
         gdelt_queries=["oil supply"],
+        edgar_tickers=["AAPL"],
     )
     jobs = {j.id: j for j in sched.get_jobs()}
-    assert set(jobs) == {"market-csv-daily", "fred-daily", "gdelt-news"}
+    assert set(jobs) == {"market-csv-daily", "fred-daily", "gdelt-news", "edgar-daily"}
     assert all(isinstance(j.trigger, CronTrigger) for j in jobs.values())
 
 

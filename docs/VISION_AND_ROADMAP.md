@@ -218,10 +218,13 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 - ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers market + FRED + GDELT ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
 - ✅ **GDELT news ingestor** (the "edge-of-the-world" core): free/no-key DOC 2.0 ArtList → parse (validation gate + in-batch dedup, keeps first/richest record) → idempotent upsert into `news_articles`. `news_articles` schema with `raw` **JSONB** (portable JSON on SQLite). 30-min scheduled job; one-shot CLI `python src/ingest_news.py "<query>"`. Verified on real Postgres (`raw` is genuinely `jsonb`, idempotent); live API call confirmed reachable.
 - ✅ **News search layer**: keyword **FTS** (Postgres `to_tsvector`/`websearch_to_tsquery`, SQLite `LIKE` fallback) + **semantic vector search** (pgvector `embedding` column + cosine `<=>`; in-Python cosine on SQLite). Pluggable `Embedder` (dependency-free hashing baseline now; `sentence-transformers` is a 384-dim drop-in upgrade). GIN + HNSW indexes via `ensure_search_indexes`; embeddings backfilled in the GDELT job. CLI `python src/search_news.py "<q>" [--semantic]`. Verified on real Postgres (vector column, HNSW+GIN indexes, cosine ranking).
-- ⬜ More ingestors: **filings** (SEC EDGAR), DBnomics, curated FreshRSS.
-- ⬜ Schema growth: range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large).
-- ⬜ Quarantine bad rows; backfill jobs; live yfinance→DB path; nightly `pg_dump` → R2/B2 backup job.
-- _Tests: 66 passing (now incl. embeddings + keyword/semantic search); ruff/black clean._
+- ✅ **SEC EDGAR filings ingestor**: ticker→CIK resolution + submissions API → parse `filings.recent` (validation gate) → idempotent upsert into a `filings` table. Daily scheduled job; CLI `python src/ingest_filings.py AAPL`. **Verified live end-to-end** (1000 real AAPL filings ingested). Needs a descriptive `SEC_USER_AGENT`.
+- ✅ **Live yfinance→DB path**: `ingest_yfinance` (injectable downloader) normalizes flat/MultiIndex output → validate → upsert; `python src/ingest.py AAPL --live`. (Yahoo can rate-limit; empty results handled gracefully.)
+- ✅ **Nightly backup**: `scripts/backup.sh` (`pg_dump -Fc` → Cloudflare R2 / Backblaze B2 via rclone, retention prune) + cron wiring docs.
+- ⬜ Optional extras: DBnomics, curated FreshRSS; range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large) — a scaling optimization, deferred until tables are big.
+- _Tests: 82 passing (EDGAR incl. idempotency/ragged-array edge cases; live-yfinance normalization incl. lowercase ticker, reversed MultiIndex, tz-aware index, NaN handling — hardened via adversarial review); ruff/black clean._
+
+**Phase 1 is functionally complete** — market (CSV + live), macro (FRED), global news (GDELT) + keyword/semantic search, and filings (EDGAR) all ingest idempotently on a schedule into Postgres with validation gates. Remaining items are optional/scaling.
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 

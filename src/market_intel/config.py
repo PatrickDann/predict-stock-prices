@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     tiingo_api_key: str | None = None
     marketaux_api_key: str | None = None
 
+    # SEC EDGAR requires a descriptive User-Agent with contact info.
+    sec_user_agent: str = "market-intel/0.1 (contact: set SEC_USER_AGENT in .env)"
+
     # --- Paths ---
     data_dir: Path = Field(default=REPO_ROOT / "data")
     models_dir: Path = Field(default=REPO_ROOT / "models")
