@@ -228,11 +228,14 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 
-### Phase 2 — Dashboard MVP _(~3–4 weeks)_
+### Phase 2 — Dashboard MVP _(~3–4 weeks)_ — 🚧 **in progress**
 **Goal: see it.**
-- Stand up the UI. **Recommended:** OpenBB Workspace + FastAPI custom backend (fastest dense terminal). Alternative: a single Streamlit app.
-- Panels: candlestick + indicators (Lightweight Charts), live news feed with ticker-level sentiment, macro dashboard, **world map of GDELT events** (Leaflet).
-- Live updates via **FastAPI WebSockets/SSE** from the worker; Redis caching for hot reads.
+- ✅ **FastAPI JSON API** (`market_intel/api`): frontend-agnostic endpoints over everything ingested — `/api/prices/{symbol}`, `/api/macro/{id}`, `/api/news/recent`, `/api/news/search` (keyword + semantic), `/api/filings/{ticker}`, `/api/health`. Test-injectable session factory; 10 tests via FastAPI TestClient. CLI `python src/serve.py`.
+- ✅ **Self-contained dark terminal dashboard** (`api/static/index.html`, no build step): candlestick price chart (TradingView Lightweight Charts), live GDELT news feed with keyword/semantic search, macro line chart, filings list. Verified end-to-end against real Postgres (500 price bars + 1000 EDGAR filings served).
+- ⬜ **World map of GDELT events** (Leaflet) — uses article `source_country`/geo.
+- ⬜ Ticker-level sentiment on the news feed; technical indicators on the chart.
+- ⬜ Live updates via **FastAPI WebSockets/SSE** + Redis caching (currently fetch-on-load).
+- ⬜ (Optional) OpenBB Workspace widgets pointed at the same API.
 
 **Done when:** one screen shows live markets + news + macro + a world event map, auto-refreshing.
 

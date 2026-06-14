@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Market Intelligence Terminal</title>
+    <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+      :root {
+        --bg: #0a0e14; --panel: #11161f; --border: #1f2733;
+        --fg: #c7d0db; --muted: #6b7689; --accent: #f5a623; --green: #26a69a; --red: #ef5350;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px;
+      }
+      header {
+        display: flex; align-items: center; gap: 16px; padding: 10px 16px;
+        border-bottom: 1px solid var(--border); background: var(--panel);
+      }
+      header h1 { font-size: 14px; letter-spacing: 2px; margin: 0; color: var(--accent); }
+      header .spacer { flex: 1; }
+      input, button, label { font-family: inherit; font-size: 12px; }
+      input[type="text"] {
+        background: #0a0e14; color: var(--fg); border: 1px solid var(--border);
+        padding: 5px 8px; border-radius: 3px; outline: none;
+      }
+      input[type="text"]:focus { border-color: var(--accent); }
+      button {
+        background: #1a2230; color: var(--fg); border: 1px solid var(--border);
+        padding: 5px 12px; border-radius: 3px; cursor: pointer;
+      }
+      button:hover { border-color: var(--accent); color: var(--accent); }
+      .grid {
+        display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1.4fr 1fr;
+        gap: 8px; padding: 8px; height: calc(100vh - 53px);
+      }
+      .panel {
+        background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      .panel h2 {
+        font-size: 11px; letter-spacing: 1px; color: var(--muted); margin: 0;
+        padding: 7px 10px; border-bottom: 1px solid var(--border); text-transform: uppercase;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .panel h2 .tag { color: var(--accent); }
+      .panel .body { flex: 1; overflow: auto; position: relative; }
+      .chart { position: absolute; inset: 0; }
+      #news { grid-row: span 2; }
+      .feed-controls { display: flex; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+      .feed-controls input { flex: 1; }
+      .feed-controls label { color: var(--muted); display: flex; align-items: center; gap: 4px; }
+      ul { list-style: none; margin: 0; padding: 0; }
+      .news-item { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+      .news-item a { color: var(--fg); text-decoration: none; }
+      .news-item a:hover { color: var(--accent); }
+      .news-meta { color: var(--muted); font-size: 11px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
+      .news-meta .score { color: var(--green); }
+      .filing { padding: 6px 10px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
+      .filing .form { color: var(--accent); min-width: 56px; }
+      .filing .date { color: var(--muted); }
+      .empty { color: var(--muted); padding: 14px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>◇ MARKET INTELLIGENCE TERMINAL</h1>
+      <input id="symbol" type="text" value="AAPL" size="8" />
+      <button onclick="loadSymbol()">LOAD</button>
+      <input id="macroId" type="text" value="GDP" size="10" title="FRED series id" />
+      <button onclick="loadMacro()">MACRO</button>
+      <span class="spacer"></span>
+      <span id="status" style="color: var(--muted)"></span>
+    </header>
+
+    <div class="grid">
+      <div class="panel">
+        <h2>Price <span class="tag" id="priceSym">AAPL</span></h2>
+        <div class="body"><div id="priceChart" class="chart"></div></div>
+      </div>
+
+      <div class="panel" id="news">
+        <h2>Global News <span class="tag">GDELT</span></h2>
+        <div class="feed-controls">
+          <input id="q" type="text" placeholder="search…" onkeydown="if(event.key==='Enter')searchNews()" />
+          <label><input type="checkbox" id="semantic" /> semantic</label>
+          <button onclick="searchNews()">GO</button>
+          <button onclick="loadNews()">↺</button>
+        </div>
+        <div class="body"><ul id="newsList"></ul></div>
+      </div>
+
+      <div class="panel">
+        <h2>Macro <span class="tag" id="macroLabel">GDP</span></h2>
+        <div class="body"><div id="macroChart" class="chart"></div></div>
+      </div>
+
+      <div class="panel">
+        <h2>Filings <span class="tag" id="filingsSym">AAPL</span></h2>
+        <div class="body"><ul id="filingsList"></ul></div>
+      </div>
+    </div>
+
+    <script>
+      const setStatus = (m) => (document.getElementById("status").textContent = m);
+      const chartOpts = {
+        layout: { background: { color: "transparent" }, textColor: "#6b7689" },
+        grid: { vertLines: { color: "#1f2733" }, horzLines: { color: "#1f2733" } },
+        rightPriceScale: { borderColor: "#1f2733" },
+        timeScale: { borderColor: "#1f2733" },
+        autoSize: true,
+      };
+
+      const priceChart = LightweightCharts.createChart(document.getElementById("priceChart"), chartOpts);
+      const candles = priceChart.addCandlestickSeries({
+        upColor: "#26a69a", downColor: "#ef5350", borderVisible: false,
+        wickUpColor: "#26a69a", wickDownColor: "#ef5350",
+      });
+      const macroChart = LightweightCharts.createChart(document.getElementById("macroChart"), chartOpts);
+      const macroLine = macroChart.addLineSeries({ color: "#f5a623", lineWidth: 2 });
+
+      async function getJSON(url) {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(r.status + " " + url);
+        return r.json();
+      }
+
+      async function loadPrices(sym) {
+        document.getElementById("priceSym").textContent = sym;
+        try {
+          const rows = await getJSON(`/api/prices/${sym}?limit=600`);
+          const data = rows.filter((r) => r.close != null).map((r) => ({
+            time: r.date, open: r.open, high: r.high, low: r.low, close: r.close,
+          }));
+          candles.setData(data);
+          priceChart.timeScale().fitContent();
+          setStatus(data.length ? `${sym}: ${data.length} bars` : `${sym}: no data — ingest first`);
+        } catch (e) { setStatus("price error: " + e.message); }
+      }
+
+      async function loadMacro() {
+        const id = document.getElementById("macroId").value.trim().toUpperCase() || "GDP";
+        document.getElementById("macroLabel").textContent = id;
+        try {
+          const rows = await getJSON(`/api/macro/${id}?limit=2000`);
+          macroLine.setData(rows.filter((r) => r.value != null).map((r) => ({ time: r.date, value: r.value })));
+          macroChart.timeScale().fitContent();
+        } catch (e) { setStatus("macro error: " + e.message); }
+      }
+
+      function renderNews(items) {
+        const ul = document.getElementById("newsList");
+        if (!items.length) { ul.innerHTML = '<li class="empty">No articles — run the GDELT ingestor.</li>'; return; }
+        ul.innerHTML = items.map((a) => `
+          <li class="news-item">
+            <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+            <div class="news-meta">
+              <span>${a.domain || ""}</span>
+              <span>${a.source_country || ""}</span>
+              <span>${a.seen_date ? a.seen_date.replace("T", " ").slice(0, 16) : ""}</span>
+              ${a.score != null ? `<span class="score">sim ${a.score}</span>` : ""}
+            </div>
+          </li>`).join("");
+      }
+
+      async function loadNews() {
+        try { renderNews(await getJSON("/api/news/recent?limit=40")); }
+        catch (e) { setStatus("news error: " + e.message); }
+      }
+      async function searchNews() {
+        const q = document.getElementById("q").value.trim();
+        if (!q) return loadNews();
+        const semantic = document.getElementById("semantic").checked;
+        try { renderNews(await getJSON(`/api/news/search?q=${encodeURIComponent(q)}&semantic=${semantic}&limit=30`)); }
+        catch (e) { setStatus("search error: " + e.message); }
+      }
+
+      async function loadFilings(sym) {
+        document.getElementById("filingsSym").textContent = sym;
+        const ul = document.getElementById("filingsList");
+        try {
+          const rows = await getJSON(`/api/filings/${sym}?limit=40`);
+          ul.innerHTML = rows.length
+            ? rows.map((f) => `<li class="filing"><span class="form">${f.form}</span><span class="date">${f.filing_date || ""}</span><span>${f.accession_no}</span></li>`).join("")
+            : '<li class="empty">No filings — run the EDGAR ingestor.</li>';
+        } catch (e) { ul.innerHTML = '<li class="empty">filings error</li>'; }
+      }
+
+      function escapeHtml(s) {
+        return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      function loadSymbol() {
+        const sym = document.getElementById("symbol").value.trim().toUpperCase() || "AAPL";
+        loadPrices(sym); loadFilings(sym);
+      }
+
+      loadSymbol(); loadNews(); loadMacro();
+    </script>
+  </body>
+</html>

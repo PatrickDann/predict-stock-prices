@@ -23,6 +23,10 @@ pandera==0.31.1            # dataframe validation
 APScheduler==3.11.2        # ingestion scheduling
 pgvector==0.4.2            # vector column + cosine search for news
 
+# --- API / dashboard (Phase 2) ---
+fastapi==0.137.0
+uvicorn[standard]==0.49.0
+
 # Optional: real semantic embeddings (drop-in for the hashing baseline, 384-dim).
 # Heavyweight (pulls torch); install only when you want semantic-quality search.
 # sentence-transformers>=3.0

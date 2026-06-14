@@ -22,6 +22,10 @@ include = ["market_intel*"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # starlette TestClient warns about httpx; cosmetic, not our code.
+    "ignore:Using `httpx`",
+]
 
 [tool.ruff]
 line-length = 100
@@ -29,6 +33,10 @@ src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection markers are designed to be called in defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
 
 [tool.black]
 line-length = 100
