@@ -1,6 +1,28 @@
 # Virtual environments
 .venv/
 venv/
+env/
+sklearn-env/
+.python-version
+
+# Secrets / local config
+.env
+.env.*
+!.env.example
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# ML artifacts & data snapshots (root-anchored so they don't match src/market_intel/models/)
+/models/
+/mlruns/
+*.h5
+*.keras
+*.joblib
+*.pkl
+*.parquet
 
 # Python cache files
 __pycache__/
