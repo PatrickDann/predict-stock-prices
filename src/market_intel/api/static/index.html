@@ -162,6 +162,10 @@
         return r.json();
       }
 
+      // Records -> Lightweight-Charts line points, dropping null/warm-up values.
+      const toLine = (rows, key) =>
+        rows.filter((r) => r[key] != null).map((r) => ({ time: r.date, value: r[key] }));
+
       async function loadPrices(sym) {
         document.getElementById("priceSym").textContent = sym;
         try {
@@ -196,9 +200,8 @@
       async function loadIndicators(sym) {
         try {
           const rows = await getJSON(`/api/indicators/${sym}?limit=600`);
-          const line = (key) => rows.filter((r) => r[key] != null).map((r) => ({ time: r.date, value: r[key] }));
-          for (const key of Object.keys(ind)) ind[key].setData(line(key));
-          rsiSeries.setData(line("rsi_14"));
+          for (const key of Object.keys(ind)) ind[key].setData(toLine(rows, key));
+          rsiSeries.setData(toLine(rows, "rsi_14"));
           const last = rows.length ? rows[rows.length - 1] : {};
           document.getElementById("priceStats").innerHTML =
             `MA20 <b>${fmt(last.sma_20)}</b> · RSI <b>${fmt(last.rsi_14, 1)}</b> · MACD <b>${fmt(last.macd)}</b>/<b>${fmt(last.macd_signal)}</b>`;
@@ -211,7 +214,7 @@
         document.getElementById("macroLabel").textContent = id;
         try {
           const rows = await getJSON(`/api/macro/${id}?limit=2000`);
-          macroLine.setData(rows.filter((r) => r.value != null).map((r) => ({ time: r.date, value: r.value })));
+          macroLine.setData(toLine(rows, "value"));
           macroChart.timeScale().fitContent();
         } catch (e) { setStatus("macro error: " + e.message); }
       }

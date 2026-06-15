@@ -108,10 +108,9 @@ def create_app(session_factory=None) -> FastAPI:
         session: Session = Depends(get_session),
     ) -> list[dict]:
         # Compute over the full series so warm-up NaNs don't eat the window,
-        # then trim to the trailing `limit` rows for display.
+        # then trim to the trailing `limit` rows for display. An unknown symbol
+        # yields an empty frame -> empty indicator frame -> [].
         df = get_prices(session, symbol.upper())
-        if df.empty:
-            return []
         return _indicator_records(compute_indicators(df), limit)
 
     @app.get("/api/macro/{series_id}")
