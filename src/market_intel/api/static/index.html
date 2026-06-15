@@ -193,10 +193,10 @@
         if (!items.length) { ul.innerHTML = '<li class="empty">No articles — run the GDELT ingestor.</li>'; return; }
         ul.innerHTML = items.map((a) => `
           <li class="news-item">
-            <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
             <div class="news-meta">
-              <span>${a.domain || ""}</span>
-              <span>${a.source_country || ""}</span>
+              <span>${escapeHtml(a.domain || "")}</span>
+              <span>${escapeHtml(a.source_country || "")}</span>
               <span>${a.seen_date ? a.seen_date.replace("T", " ").slice(0, 16) : ""}</span>
               ${a.score != null ? `<span class="score">sim ${a.score}</span>` : ""}
             </div>

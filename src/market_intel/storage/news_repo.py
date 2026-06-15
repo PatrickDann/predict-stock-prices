@@ -59,11 +59,13 @@ def country_counts(session: Session) -> list[tuple[str, int]]:
     on a map). Returns ``[(country, count), ...]``.
     """
     n = func.count().label("n")
-    rows = session.execute(
-        select(NewsArticle.source_country, n)
-        .where(NewsArticle.source_country.isnot(None))
-        .where(NewsArticle.source_country != "")
-        .group_by(NewsArticle.source_country)
-        .order_by(n.desc())
-    ).all()
-    return [(country, count) for country, count in rows]
+    return [
+        (country, count)
+        for country, count in session.execute(
+            select(NewsArticle.source_country, n)
+            .where(NewsArticle.source_country.isnot(None))
+            .where(NewsArticle.source_country != "")
+            .group_by(NewsArticle.source_country)
+            .order_by(n.desc())
+        ).all()
+    ]
