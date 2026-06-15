@@ -210,14 +210,21 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 
 **Done:** the LSTM trains with honest (non-leaky) metrics; `pip install -r requirements.txt` reproduces the env; `docker compose up` provisions Postgres+pgvector+Redis. _Remaining for the user: spin up Docker on the always-on box and copy `.env.example` → `.env`._
 
-### Phase 1 — Data ingestion backbone _(~2–4 weeks)_
+### Phase 1 — Data ingestion backbone _(~2–4 weeks)_ — 🚧 **in progress**
 **Goal: continuous, validated, multi-source ingestion into Postgres.**
-- Python worker: FastAPI app skeleton + APScheduler, connected to the local Postgres.
-- Ingestors: **market** (yfinance/Finnhub free; Tiingo optional), **macro** (FRED + DBnomics), **news/events** (GDELT DOC API + a curated FreshRSS feed set), **filings** (SEC EDGAR). All free.
-- Define normalized schema: `prices` & `macro_series` as **range-partitioned tables** (BRIN index on time to start; `pg_partman`+`pg_cron` when they grow); `news_articles` (JSONB + `tsvector` GIN + `pgvector`).
-- Pandera contracts at every ingest boundary; quarantine + log bad rows.
-- Idempotent upserts, backfill jobs, basic retry/observability.
-- Wire up the nightly `pg_dump` → R2/B2 backup job.
+- ✅ **Storage layer** (`storage/`): SQLAlchemy `Price` model (composite PK → idempotent upserts), engine/session helpers, prices repo. Portable Postgres/SQLite.
+- ✅ **Market ingestor** (`ingest/`): CSV → **Pandera validation gate** → idempotent upsert. CLI `python src/ingest.py AAPL`. Verified end-to-end against real Postgres (pgvector/pg17 container): 2264 AAPL + 2264 MSFT rows, re-run stays idempotent.
+- ✅ **Macro (FRED) ingestor**: fetch → parse (drops `.` missing values) → validate → idempotent upsert into a `macro_series` table. Verified against real Postgres. Isolated/injectable HTTP client so parsing is unit-tested without a key.
+- ✅ **APScheduler worker** (`scheduler.py` + `src/worker.py`): registers market + FRED + GDELT ingestion jobs (per-item errors logged, never crash the loop); registration unit-tested.
+- ✅ **GDELT news ingestor** (the "edge-of-the-world" core): free/no-key DOC 2.0 ArtList → parse (validation gate + in-batch dedup, keeps first/richest record) → idempotent upsert into `news_articles`. `news_articles` schema with `raw` **JSONB** (portable JSON on SQLite). 30-min scheduled job; one-shot CLI `python src/ingest_news.py "<query>"`. Verified on real Postgres (`raw` is genuinely `jsonb`, idempotent); live API call confirmed reachable.
+- ✅ **News search layer**: keyword **FTS** (Postgres `to_tsvector`/`websearch_to_tsquery`, SQLite `LIKE` fallback) + **semantic vector search** (pgvector `embedding` column + cosine `<=>`; in-Python cosine on SQLite). Pluggable `Embedder` (dependency-free hashing baseline now; `sentence-transformers` is a 384-dim drop-in upgrade). GIN + HNSW indexes via `ensure_search_indexes`; embeddings backfilled in the GDELT job. CLI `python src/search_news.py "<q>" [--semantic]`. Verified on real Postgres (vector column, HNSW+GIN indexes, cosine ranking).
+- ✅ **SEC EDGAR filings ingestor**: ticker→CIK resolution + submissions API → parse `filings.recent` (validation gate) → idempotent upsert into a `filings` table. Daily scheduled job; CLI `python src/ingest_filings.py AAPL`. **Verified live end-to-end** (1000 real AAPL filings ingested). Needs a descriptive `SEC_USER_AGENT`.
+- ✅ **Live yfinance→DB path**: `ingest_yfinance` (injectable downloader) normalizes flat/MultiIndex output → validate → upsert; `python src/ingest.py AAPL --live`. (Yahoo can rate-limit; empty results handled gracefully.)
+- ✅ **Nightly backup**: `scripts/backup.sh` (`pg_dump -Fc` → Cloudflare R2 / Backblaze B2 via rclone, retention prune) + cron wiring docs.
+- ⬜ Optional extras: DBnomics, curated FreshRSS; range-partitioning (BRIN now → `pg_partman`+`pg_cron` when large) — a scaling optimization, deferred until tables are big.
+- _Tests: 82 passing (EDGAR incl. idempotency/ragged-array edge cases; live-yfinance normalization incl. lowercase ticker, reversed MultiIndex, tz-aware index, NaN handling — hardened via adversarial review); ruff/black clean._
+
+**Phase 1 is functionally complete** — market (CSV + live), macro (FRED), global news (GDELT) + keyword/semantic search, and filings (EDGAR) all ingest idempotently on a schedule into Postgres with validation gates. Remaining items are optional/scaling.
 
 **Done when:** scheduled jobs keep prices, macro, and global news flowing into Postgres unattended, with validation gates and off-box backups.
 
