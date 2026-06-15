@@ -8,7 +8,12 @@ from market_intel.ingest.news import (
     parse_gdelt_articles,
 )
 from market_intel.storage.db import init_db, make_engine, make_session_factory
-from market_intel.storage.news_repo import count_articles, get_recent_articles
+from market_intel.storage.news_repo import (
+    count_articles,
+    country_counts,
+    get_recent_articles,
+    upsert_articles,
+)
 
 PAYLOAD = {
     "articles": [
@@ -106,3 +111,17 @@ def test_ingest_gdelt_end_to_end_and_idempotent(session_factory):
         assert len(recent) == 2
         # the article with a real seen_date sorts ahead of the NULL one
         assert recent[0].url == "https://example.com/a"
+
+
+def test_country_counts_aggregates_and_excludes_blank(session_factory):
+    articles = [
+        {"url_hash": "1", "url": "u1", "title": "t1", "source_country": "Egypt"},
+        {"url_hash": "2", "url": "u2", "title": "t2", "source_country": "Egypt"},
+        {"url_hash": "3", "url": "u3", "title": "t3", "source_country": "India"},
+        {"url_hash": "4", "url": "u4", "title": "t4", "source_country": None},
+        {"url_hash": "5", "url": "u5", "title": "t5", "source_country": ""},
+    ]
+    with session_factory() as s:
+        upsert_articles(s, articles)
+        counts = country_counts(s)
+    assert counts == [("Egypt", 2), ("India", 1)]  # most active first; NULL/"" dropped
