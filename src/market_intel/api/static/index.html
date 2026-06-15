@@ -197,16 +197,30 @@
         });
       }
 
+      function clearIndicators() {
+        for (const key of Object.keys(ind)) ind[key].setData([]);
+        rsiSeries.setData([]);
+        // Drop any RSI-band squeeze so a cleared chart isn't left with a gap.
+        priceChart.priceScale("right").applyOptions({ scaleMargins: { top: 0.1, bottom: 0.1 } });
+      }
+
       async function loadIndicators(sym) {
+        const stats = document.getElementById("priceStats");
         try {
           const rows = await getJSON(`/api/indicators/${sym}?limit=600`);
           for (const key of Object.keys(ind)) ind[key].setData(toLine(rows, key));
           rsiSeries.setData(toLine(rows, "rsi_14"));
           const last = rows.length ? rows[rows.length - 1] : {};
-          document.getElementById("priceStats").innerHTML =
+          stats.innerHTML =
             `MA20 <b>${fmt(last.sma_20)}</b> · RSI <b>${fmt(last.rsi_14, 1)}</b> · MACD <b>${fmt(last.macd)}</b>/<b>${fmt(last.macd_signal)}</b>`;
           applyToggles();
-        } catch (e) { /* indicators are optional — leave the price chart intact */ }
+        } catch (e) {
+          // Indicators are optional. Clear stale overlays (never attribute a prior
+          // symbol's lines to this one) and signal locally — not on the shared
+          // status line that sibling loaders also write to.
+          clearIndicators();
+          stats.textContent = "indicators unavailable";
+        }
       }
 
       async function loadMacro() {

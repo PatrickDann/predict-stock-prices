@@ -97,7 +97,11 @@ def compute_indicators(df: pd.DataFrame) -> pd.DataFrame:
     ``df`` is ``get_prices``/``load_prices``-shaped: a DatetimeIndex with a
     ``Close`` column. Returns a frame on the same index with one column per
     indicator series. An empty input yields an empty frame.
+
+    The index is sorted chronologically first: ``rolling``/``ewm`` are positional,
+    so an out-of-order frame would otherwise produce silently-wrong values.
     """
+    df = df.sort_index()
     close = df["Close"].astype("float64")
     out = pd.DataFrame(index=df.index)
     for window in SMA_WINDOWS:

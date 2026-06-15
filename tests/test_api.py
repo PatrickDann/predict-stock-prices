@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from market_intel.api.app import create_app
+from market_intel.api.app import _num, create_app
 from market_intel.search import embed_pending
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import upsert_filings
@@ -82,15 +82,27 @@ def test_indicators(client):
         "macd_signal",
         "macd_hist",
     }
-    # Only 5 bars: SMA20 never warms up (null everywhere); EMA/RSI are defined.
-    assert all(r["sma_20"] is None for r in rows)
+    # Only 5 bars: every window-20 column stays in warm-up (null everywhere),
+    # so they must serialize as JSON null; EMA/RSI/MACD are defined from row 0/1.
+    for col in ("sma_20", "sma_50", "bb_upper", "bb_mid", "bb_lower"):
+        assert all(r[col] is None for r in rows)
     assert rows[-1]["ema_20"] is not None
     assert rows[-1]["rsi_14"] is not None
+    assert rows[-1]["macd"] is not None
 
 
 def test_indicators_limit_and_unknown_symbol(client):
     assert len(client.get("/api/indicators/AAPL?limit=2").json()) == 2
     assert client.get("/api/indicators/ZZZZ").json() == []
+
+
+def test_num_coerces_non_finite_to_none():
+    # Infinity is not valid JSON; non-finite values must serialize as null.
+    assert _num(float("inf")) is None
+    assert _num(float("-inf")) is None
+    assert _num(float("nan")) is None
+    assert _num(None) is None
+    assert _num(1.5) == 1.5
 
 
 def test_macro(client):

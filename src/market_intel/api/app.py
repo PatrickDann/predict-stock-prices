@@ -24,14 +24,17 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 
 def _num(value) -> float | None:
-    """Coerce to a JSON-safe number (NaN -> None)."""
+    """Coerce to a JSON-safe number (NaN/±inf -> None).
+
+    ``Infinity`` is not valid JSON, so non-finite values become ``None``.
+    """
     if value is None:
         return None
     try:
         f = float(value)
     except (TypeError, ValueError):
         return None
-    return None if math.isnan(f) else f
+    return f if math.isfinite(f) else None
 
 
 def _price_records(df: pd.DataFrame, limit: int) -> list[dict]:
