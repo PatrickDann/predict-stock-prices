@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from market_intel.indicators import compute_indicators
 from market_intel.search import keyword_search, semantic_search
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import get_filings
@@ -45,6 +46,16 @@ def _price_records(df: pd.DataFrame, limit: int) -> list[dict]:
             "close": _num(row.get("Close")),
             "volume": _num(row.get("Volume")),
         }
+        for ts, row in df.iterrows()
+    ]
+
+
+def _indicator_records(df: pd.DataFrame, limit: int) -> list[dict]:
+    """Date-aligned indicator rows with JSON-safe (NaN -> None) values."""
+    if limit:
+        df = df.tail(limit)
+    return [
+        {"date": pd.Timestamp(ts).date().isoformat(), **{c: _num(row[c]) for c in df.columns}}
         for ts, row in df.iterrows()
     ]
 
@@ -89,6 +100,19 @@ def create_app(session_factory=None) -> FastAPI:
         session: Session = Depends(get_session),
     ) -> list[dict]:
         return _price_records(get_prices(session, symbol.upper()), limit)
+
+    @app.get("/api/indicators/{symbol}")
+    def indicators(
+        symbol: str,
+        limit: int = Query(500, ge=0, le=10000),
+        session: Session = Depends(get_session),
+    ) -> list[dict]:
+        # Compute over the full series so warm-up NaNs don't eat the window,
+        # then trim to the trailing `limit` rows for display.
+        df = get_prices(session, symbol.upper())
+        if df.empty:
+            return []
+        return _indicator_records(compute_indicators(df), limit)
 
     @app.get("/api/macro/{series_id}")
     def macro(

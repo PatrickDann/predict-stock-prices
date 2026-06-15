@@ -66,6 +66,33 @@ def test_prices_unknown_symbol_empty(client):
     assert client.get("/api/prices/ZZZZ").json() == []
 
 
+def test_indicators(client):
+    rows = client.get("/api/indicators/aapl").json()
+    assert len(rows) == 5  # one row per price bar
+    assert set(rows[0]) == {
+        "date",
+        "sma_20",
+        "sma_50",
+        "ema_20",
+        "bb_upper",
+        "bb_mid",
+        "bb_lower",
+        "rsi_14",
+        "macd",
+        "macd_signal",
+        "macd_hist",
+    }
+    # Only 5 bars: SMA20 never warms up (null everywhere); EMA/RSI are defined.
+    assert all(r["sma_20"] is None for r in rows)
+    assert rows[-1]["ema_20"] is not None
+    assert rows[-1]["rsi_14"] is not None
+
+
+def test_indicators_limit_and_unknown_symbol(client):
+    assert len(client.get("/api/indicators/AAPL?limit=2").json()) == 2
+    assert client.get("/api/indicators/ZZZZ").json() == []
+
+
 def test_macro(client):
     rows = client.get("/api/macro/GDP").json()
     assert [r["value"] for r in rows] == [100.0, 101.0, 102.0]
