@@ -230,10 +230,11 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 
 ### Phase 2 — Dashboard MVP _(~3–4 weeks)_ — 🚧 **in progress**
 **Goal: see it.**
-- ✅ **FastAPI JSON API** (`market_intel/api`): frontend-agnostic endpoints over everything ingested — `/api/prices/{symbol}`, `/api/macro/{id}`, `/api/news/recent`, `/api/news/search` (keyword + semantic), `/api/filings/{ticker}`, `/api/health`. Test-injectable session factory; 10 tests via FastAPI TestClient. CLI `python src/serve.py`.
+- ✅ **FastAPI JSON API** (`market_intel/api`): frontend-agnostic endpoints over everything ingested — `/api/prices/{symbol}`, `/api/indicators/{symbol}`, `/api/macro/{id}`, `/api/news/recent`, `/api/news/search` (keyword + semantic), `/api/filings/{ticker}`, `/api/health`. Test-injectable session factory; tested via FastAPI TestClient. CLI `python src/serve.py`.
 - ✅ **Self-contained dark terminal dashboard** (`api/static/index.html`, no build step): candlestick price chart (TradingView Lightweight Charts), live GDELT news feed with keyword/semantic search, macro line chart, filings list. Verified end-to-end against real Postgres (500 price bars + 1000 EDGAR filings served).
 - ⬜ **World map of GDELT events** (Leaflet) — uses article `source_country`/geo.
-- ⬜ Ticker-level sentiment on the news feed; technical indicators on the chart.
+- ✅ **Technical indicators on the price chart**: SMA 20/50, EMA, **RSI** (Wilder's smoothing), **MACD**, **Bollinger Bands** computed server-side and **causally** (`market_intel/indicators.py` — `rolling`/`ewm` only, no lookahead) → `/api/indicators/{symbol}` (date-aligned, JSON-safe NaN→null) → dashboard overlays (MA + Bollinger), a toggleable **RSI** sub-band, and a latest-value readout (MA20 / RSI / MACD). Indicators load independently of the price fetch and degrade gracefully if unavailable. Tests cover the indicator math (known values, warm-up, causality, all-gains/all-losses edges) + the endpoint.
+- ⬜ Ticker-level sentiment on the news feed — **deferred**: depends on FinBERT scoring (a Phase-3 deliverable) or a keyed sentiment API (Marketaux/Finnhub); not self-contained at this stage.
 - ⬜ Live updates via **FastAPI WebSockets/SSE** + Redis caching (currently fetch-on-load).
 - ⬜ (Optional) OpenBB Workspace widgets pointed at the same API.
 
