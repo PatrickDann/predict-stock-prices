@@ -12,11 +12,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
+from market_intel.geo import country_centroid
 from market_intel.search import keyword_search, semantic_search
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import get_filings
 from market_intel.storage.macro_repo import get_macro
-from market_intel.storage.news_repo import get_recent_articles
+from market_intel.storage.news_repo import country_counts, get_recent_articles
 from market_intel.storage.prices_repo import get_prices
 
 STATIC_DIR = Path(__file__).parent / "static"
@@ -121,6 +122,21 @@ def create_app(session_factory=None) -> FastAPI:
         if semantic:
             return [_article_record(a, s) for a, s in semantic_search(session, q, limit=limit)]
         return [_article_record(a) for a in keyword_search(session, q, limit=limit)]
+
+    @app.get("/api/news/map")
+    def news_map(session: Session = Depends(get_session)) -> list[dict]:
+        """Per-country article counts geo-located to country centroids.
+
+        Countries with no known centroid are skipped (can't be placed on a map).
+        """
+        out = []
+        for country, count in country_counts(session):
+            geo = country_centroid(country)
+            if geo is None:
+                continue
+            lat, lon, iso = geo
+            out.append({"country": country, "count": count, "lat": lat, "lon": lon, "iso": iso})
+        return out
 
     @app.get("/api/filings/{ticker}")
     def filings(

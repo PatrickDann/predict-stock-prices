@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Market Intelligence Terminal</title>
     <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
       :root {
         --bg: #0a0e14; --panel: #11161f; --border: #1f2733;
@@ -33,9 +35,17 @@
       }
       button:hover { border-color: var(--accent); color: var(--accent); }
       .grid {
-        display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1.4fr 1fr;
-        gap: 8px; padding: 8px; height: calc(100vh - 53px);
+        display: grid; gap: 8px; padding: 8px; height: calc(100vh - 53px);
+        grid-template-columns: 2fr 1fr 1fr; grid-template-rows: 1.2fr 1.2fr;
+        grid-template-areas:
+          "price   map     news"
+          "macro   filings news";
       }
+      #pricePanel { grid-area: price; }
+      #mapPanel { grid-area: map; }
+      #news { grid-area: news; }
+      #macroPanel { grid-area: macro; }
+      #filingsPanel { grid-area: filings; }
       .panel {
         background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
         display: flex; flex-direction: column; overflow: hidden;
@@ -48,7 +58,6 @@
       .panel h2 .tag { color: var(--accent); }
       .panel .body { flex: 1; overflow: auto; position: relative; }
       .chart { position: absolute; inset: 0; }
-      #news { grid-row: span 2; }
       .feed-controls { display: flex; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); }
       .feed-controls input { flex: 1; }
       .feed-controls label { color: var(--muted); display: flex; align-items: center; gap: 4px; }
@@ -62,6 +71,21 @@
       .filing .form { color: var(--accent); min-width: 56px; }
       .filing .date { color: var(--muted); }
       .empty { color: var(--muted); padding: 14px; }
+      /* Leaflet dark-theme overrides */
+      .leaflet-container { background: var(--bg); font-family: inherit; }
+      .leaflet-control-attribution {
+        background: rgba(10, 14, 20, 0.7) !important; color: var(--muted) !important; font-size: 10px;
+      }
+      .leaflet-control-attribution a { color: var(--muted) !important; }
+      .leaflet-bar a {
+        background: var(--panel); color: var(--fg); border-color: var(--border);
+      }
+      .leaflet-bar a:hover { background: #1a2230; color: var(--accent); }
+      .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+        background: var(--panel); color: var(--fg); border: 1px solid var(--border);
+      }
+      .leaflet-popup-content { margin: 8px 10px; font-size: 12px; }
+      .leaflet-popup-content b { color: var(--accent); }
     </style>
   </head>
   <body>
@@ -76,9 +100,15 @@
     </header>
 
     <div class="grid">
-      <div class="panel">
+      <div class="panel" id="pricePanel">
         <h2>Price <span class="tag" id="priceSym">AAPL</span></h2>
         <div class="body"><div id="priceChart" class="chart"></div></div>
+      </div>
+
+      <div class="panel" id="mapPanel">
+        <h2>World Events <span class="tag">GDELT</span><span class="spacer" style="flex:1"></span>
+          <button onclick="loadMap()" title="refresh map" style="padding:1px 8px">↺</button></h2>
+        <div class="body"><div id="worldMap" class="chart"></div></div>
       </div>
 
       <div class="panel" id="news">
@@ -92,12 +122,12 @@
         <div class="body"><ul id="newsList"></ul></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="macroPanel">
         <h2>Macro <span class="tag" id="macroLabel">GDP</span></h2>
         <div class="body"><div id="macroChart" class="chart"></div></div>
       </div>
 
-      <div class="panel">
+      <div class="panel" id="filingsPanel">
         <h2>Filings <span class="tag" id="filingsSym">AAPL</span></h2>
         <div class="body"><ul id="filingsList"></ul></div>
       </div>
@@ -120,6 +150,14 @@
       });
       const macroChart = LightweightCharts.createChart(document.getElementById("macroChart"), chartOpts);
       const macroLine = macroChart.addLineSeries({ color: "#f5a623", lineWidth: 2 });
+
+      const worldMap = L.map("worldMap", { worldCopyJump: true, minZoom: 1, maxZoom: 6, attributionControl: true }).setView([25, 10], 1);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: "abcd", maxZoom: 6,
+      }).addTo(worldMap);
+      const eventLayer = L.layerGroup().addTo(worldMap);
+      addEventListener("resize", () => worldMap.invalidateSize());
 
       async function getJSON(url) {
         const r = await fetch(url);
@@ -155,10 +193,10 @@
         if (!items.length) { ul.innerHTML = '<li class="empty">No articles — run the GDELT ingestor.</li>'; return; }
         ul.innerHTML = items.map((a) => `
           <li class="news-item">
-            <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+            <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
             <div class="news-meta">
-              <span>${a.domain || ""}</span>
-              <span>${a.source_country || ""}</span>
+              <span>${escapeHtml(a.domain || "")}</span>
+              <span>${escapeHtml(a.source_country || "")}</span>
               <span>${a.seen_date ? a.seen_date.replace("T", " ").slice(0, 16) : ""}</span>
               ${a.score != null ? `<span class="score">sim ${a.score}</span>` : ""}
             </div>
@@ -175,6 +213,23 @@
         const semantic = document.getElementById("semantic").checked;
         try { renderNews(await getJSON(`/api/news/search?q=${encodeURIComponent(q)}&semantic=${semantic}&limit=30`)); }
         catch (e) { setStatus("search error: " + e.message); }
+      }
+
+      async function loadMap() {
+        try {
+          const rows = await getJSON("/api/news/map");
+          eventLayer.clearLayers();
+          const max = rows.reduce((m, r) => Math.max(m, r.count), 1);
+          for (const r of rows) {
+            const radius = 4 + 14 * Math.sqrt(r.count / max);
+            L.circleMarker([r.lat, r.lon], {
+              radius, color: "#f5a623", weight: 1, fillColor: "#f5a623", fillOpacity: 0.45,
+            })
+              .bindPopup(`<b>${escapeHtml(r.country)}</b><br>${r.count} article${r.count === 1 ? "" : "s"}`)
+              .addTo(eventLayer);
+          }
+          worldMap.invalidateSize();
+        } catch (e) { setStatus("map error: " + e.message); }
       }
 
       async function loadFilings(sym) {
@@ -197,7 +252,7 @@
         loadPrices(sym); loadFilings(sym);
       }
 
-      loadSymbol(); loadNews(); loadMacro();
+      loadSymbol(); loadNews(); loadMacro(); loadMap();
     </script>
   </body>
 </html>

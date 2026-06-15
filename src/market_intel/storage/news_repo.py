@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from market_intel.storage.models import NewsArticle
@@ -50,3 +50,22 @@ def get_recent_articles(session: Session, limit: int = 50) -> list[NewsArticle]:
 
 def count_articles(session: Session) -> int:
     return session.query(NewsArticle).count()
+
+
+def country_counts(session: Session) -> list[tuple[str, int]]:
+    """Article counts grouped by ``source_country``, most active first.
+
+    Rows with a NULL or empty ``source_country`` are excluded (nothing to place
+    on a map). Returns ``[(country, count), ...]``.
+    """
+    n = func.count().label("n")
+    return [
+        (country, count)
+        for country, count in session.execute(
+            select(NewsArticle.source_country, n)
+            .where(NewsArticle.source_country.isnot(None))
+            .where(NewsArticle.source_country != "")
+            .group_by(NewsArticle.source_country)
+            .order_by(n.desc())
+        ).all()
+    ]

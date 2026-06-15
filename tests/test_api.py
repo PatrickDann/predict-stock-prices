@@ -34,8 +34,18 @@ def client(tmp_path):
         {"value": [100.0, 101.0, 102.0]}, index=pd.date_range("2020-01-01", periods=3, freq="MS")
     )
     articles = [
-        {"url_hash": "h1", "url": "u1", "title": "Oil supply disruption at remote port"},
-        {"url_hash": "h2", "url": "u2", "title": "Central bank decision on rates"},
+        {
+            "url_hash": "h1",
+            "url": "u1",
+            "title": "Oil supply disruption at remote port",
+            "source_country": "United States",
+        },
+        {
+            "url_hash": "h2",
+            "url": "u2",
+            "title": "Central bank decision on rates",
+            "source_country": "United Kingdom",
+        },
     ]
     filings = [{"accession_no": "a-1", "cik": "0000320193", "ticker": "AAPL", "form": "10-K"}]
     with sf() as s:
@@ -88,6 +98,17 @@ def test_news_search_semantic(client):
     assert rows
     assert "score" in rows[0]
     assert rows[0]["url"] == "u1"  # most relevant first
+
+
+def test_news_map(client):
+    rows = client.get("/api/news/map").json()
+    by_country = {r["country"]: r for r in rows}
+    assert {"United States", "United Kingdom"} <= set(by_country)
+    us = by_country["United States"]
+    assert us["count"] == 1
+    assert us["iso"] == "US"
+    assert -90 <= us["lat"] <= 90 and -180 <= us["lon"] <= 180
+    assert set(us) == {"country", "count", "lat", "lon", "iso"}
 
 
 def test_filings(client):

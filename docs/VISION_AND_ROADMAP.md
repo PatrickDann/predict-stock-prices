@@ -232,7 +232,7 @@ Estimates assume solo, part-time effort. Each phase ends in something usable.
 **Goal: see it.**
 - ✅ **FastAPI JSON API** (`market_intel/api`): frontend-agnostic endpoints over everything ingested — `/api/prices/{symbol}`, `/api/macro/{id}`, `/api/news/recent`, `/api/news/search` (keyword + semantic), `/api/filings/{ticker}`, `/api/health`. Test-injectable session factory; 10 tests via FastAPI TestClient. CLI `python src/serve.py`.
 - ✅ **Self-contained dark terminal dashboard** (`api/static/index.html`, no build step): candlestick price chart (TradingView Lightweight Charts), live GDELT news feed with keyword/semantic search, macro line chart, filings list. Verified end-to-end against real Postgres (500 price bars + 1000 EDGAR filings served).
-- ⬜ **World map of GDELT events** (Leaflet) — uses article `source_country`/geo.
+- ✅ **World map of GDELT events** (Leaflet): `/api/news/map` aggregates stored articles by `source_country` and geo-locates them to country centroids (`market_intel/geo.py`, GDELT naming quirks + aliases handled, e.g. "Slovak Republic"/"Slovakia"); the dashboard renders a dark CARTO basemap with article-count-scaled circle markers. Verified against real GDELT country names (live API call) and via TestClient.
 - ⬜ Ticker-level sentiment on the news feed; technical indicators on the chart.
 - ⬜ Live updates via **FastAPI WebSockets/SSE** + Redis caching (currently fetch-on-load).
 - ⬜ (Optional) OpenBB Workspace widgets pointed at the same API.
