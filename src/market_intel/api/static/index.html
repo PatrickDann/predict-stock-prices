@@ -159,10 +159,10 @@
         if (!items.length) { ul.innerHTML = '<li class="empty">No articles — run the GDELT ingestor.</li>'; return; }
         ul.innerHTML = items.map((a) => `
           <li class="news-item">
-            <a href="${a.url}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
+            <a href="${escapeHtml(safeUrl(a.url))}" target="_blank" rel="noopener">${escapeHtml(a.title)}</a>
             <div class="news-meta">
-              <span>${a.domain || ""}</span>
-              <span>${a.source_country || ""}</span>
+              <span>${escapeHtml(a.domain)}</span>
+              <span>${escapeHtml(a.source_country)}</span>
               <span>${a.seen_date ? a.seen_date.replace("T", " ").slice(0, 16) : ""}</span>
               ${a.score != null ? `<span class="score">sim ${a.score}</span>` : ""}
             </div>
@@ -187,13 +187,21 @@
         try {
           const rows = await getJSON(`/api/filings/${sym}?limit=40`);
           ul.innerHTML = rows.length
-            ? rows.map((f) => `<li class="filing"><span class="form">${f.form}</span><span class="date">${f.filing_date || ""}</span><span>${f.accession_no}</span></li>`).join("")
+            ? rows.map((f) => `<li class="filing"><span class="form">${escapeHtml(f.form)}</span><span class="date">${escapeHtml(f.filing_date)}</span><span>${escapeHtml(f.accession_no)}</span></li>`).join("")
             : '<li class="empty">No filings — run the EDGAR ingestor.</li>';
         } catch (e) { ul.innerHTML = '<li class="empty">filings error</li>'; }
       }
 
       function escapeHtml(s) {
         return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+      }
+
+      // Allow only http(s) links — blocks javascript:/data: URLs from ingested article data.
+      function safeUrl(u) {
+        try {
+          const p = new URL(u, location.origin);
+          return p.protocol === "http:" || p.protocol === "https:" ? p.href : "#";
+        } catch { return "#"; }
       }
 
       let currentSymbol = "AAPL";
