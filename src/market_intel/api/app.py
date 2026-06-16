@@ -7,7 +7,7 @@ import inspect
 import json
 import math
 import time
-from collections.abc import AsyncIterator, Callable, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from pathlib import Path
 
 import pandas as pd
@@ -38,6 +38,11 @@ _UNSET = object()  # sentinel so the stream emits news on its very first tick
 def _sse(event: str, data: object) -> str:
     """Format one Server-Sent Events frame."""
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _cache_key(resource: str, *parts: object) -> str:
+    """Build a versioned read-cache key (bump ``CACHE_PREFIX`` if a payload shape changes)."""
+    return ":".join([CACHE_PREFIX, resource, *(str(p) for p in parts)])
 
 
 def _num(value) -> float | None:
@@ -103,7 +108,7 @@ def _news_snapshot(sf, last_seen: object, limit: int) -> tuple[object, list[dict
 async def news_stream(
     sf,
     poll: float,
-    is_disconnected: Callable[[], object],
+    is_disconnected: Callable[[], bool | Awaitable[bool]],
     *,
     news_limit: int = STREAM_NEWS_LIMIT,
 ) -> AsyncIterator[str]:
@@ -162,7 +167,7 @@ def create_app(
         symbol = symbol.upper()
         return cached(
             cache,
-            f"{CACHE_PREFIX}:prices:{symbol}:{limit}",
+            _cache_key("prices", symbol, limit),
             ttl,
             lambda: _price_records(get_prices(session, symbol), limit),
         )
@@ -184,7 +189,7 @@ def create_app(
                 for ts, row in df.iterrows()
             ]
 
-        return cached(cache, f"{CACHE_PREFIX}:macro:{series_id}:{limit}", ttl, produce)
+        return cached(cache, _cache_key("macro", series_id, limit), ttl, produce)
 
     @app.get("/api/news/recent")
     def news_recent(
@@ -193,7 +198,7 @@ def create_app(
     ) -> list[dict]:
         return cached(
             cache,
-            f"{CACHE_PREFIX}:news:recent:{limit}",
+            _cache_key("news:recent", limit),
             ttl,
             lambda: [_article_record(a) for a in get_recent_articles(session, limit=limit)],
         )
@@ -217,7 +222,7 @@ def create_app(
     ) -> list[dict]:
         return cached(
             cache,
-            f"{CACHE_PREFIX}:filings:{ticker.upper()}:{limit}",
+            _cache_key("filings", ticker.upper(), limit),
             ttl,
             lambda: [
                 {

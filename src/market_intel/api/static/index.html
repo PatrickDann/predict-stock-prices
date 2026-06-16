@@ -218,7 +218,7 @@
         es.addEventListener("news", (e) => {
           // don't clobber the user's active search results
           if (document.getElementById("q").value.trim()) return;
-          try { renderNews(JSON.parse(e.data)); } catch (_) {}
+          try { renderNews(JSON.parse(e.data)); } catch (err) { console.warn("bad news frame", err); }
         });
         es.addEventListener("tick", () => {
           // refresh the symbol panels at most once a minute (cheap: server-side cached)
