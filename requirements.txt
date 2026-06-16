@@ -26,12 +26,12 @@ pgvector==0.4.2            # vector column + cosine search for news
 # --- API / dashboard (Phase 2) ---
 fastapi==0.137.0
 uvicorn[standard]==0.49.0
+redis==5.3.1               # read-endpoint caching + live SSE updates (optional; degrades to no-op)
 
 # Optional: real semantic embeddings (drop-in for the hashing baseline, 384-dim).
 # Heavyweight (pulls torch); install only when you want semantic-quality search.
 # sentence-transformers>=3.0
 
 # --- Phase 1 (uncomment as the rest of the backbone lands) ---
-# redis>=5.0
 # pyarrow>=18.0             # Parquet
 # duckdb>=1.1               # analytics / ML feature layer

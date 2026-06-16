@@ -21,6 +21,9 @@
       }
       header h1 { font-size: 14px; letter-spacing: 2px; margin: 0; color: var(--accent); }
       header .spacer { flex: 1; }
+      #live { font-size: 11px; letter-spacing: 1px; }
+      #live.on { color: var(--green); }
+      #live.off { color: var(--muted); }
       input, button, label { font-family: inherit; font-size: 12px; }
       input[type="text"] {
         background: #0a0e14; color: var(--fg); border: 1px solid var(--border);
@@ -72,6 +75,7 @@
       <input id="macroId" type="text" value="GDP" size="10" title="FRED series id" />
       <button onclick="loadMacro()">MACRO</button>
       <span class="spacer"></span>
+      <span id="live" class="off" title="live feed (SSE)">● OFFLINE</span>
       <span id="status" style="color: var(--muted)"></span>
     </header>
 
@@ -192,12 +196,38 @@
         return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
       }
 
+      let currentSymbol = "AAPL";
       function loadSymbol() {
-        const sym = document.getElementById("symbol").value.trim().toUpperCase() || "AAPL";
-        loadPrices(sym); loadFilings(sym);
+        currentSymbol = document.getElementById("symbol").value.trim().toUpperCase() || "AAPL";
+        loadPrices(currentSymbol); loadFilings(currentSymbol);
       }
 
       loadSymbol(); loadNews(); loadMacro();
+
+      // --- Live updates via Server-Sent Events (auto-reconnecting) ---
+      const liveEl = document.getElementById("live");
+      const setLive = (on) => {
+        liveEl.className = on ? "on" : "off";
+        liveEl.textContent = on ? "● LIVE" : "● reconnecting…";
+      };
+      let lastPanelRefresh = Date.now();
+      function startStream() {
+        const es = new EventSource("/api/stream");
+        es.onopen = () => setLive(true);
+        es.onerror = () => setLive(false); // EventSource reconnects on its own
+        es.addEventListener("news", (e) => {
+          // don't clobber the user's active search results
+          if (document.getElementById("q").value.trim()) return;
+          try { renderNews(JSON.parse(e.data)); } catch (_) {}
+        });
+        es.addEventListener("tick", () => {
+          // refresh the symbol panels at most once a minute (cheap: server-side cached)
+          if (Date.now() - lastPanelRefresh < 60000) return;
+          lastPanelRefresh = Date.now();
+          loadPrices(currentSymbol); loadFilings(currentSymbol); loadMacro();
+        });
+      }
+      startStream();
     </script>
   </body>
 </html>

@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from market_intel.api.app import create_app
+from market_intel.cache import MemoryCache
 from market_intel.search import embed_pending
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import upsert_filings
@@ -44,7 +45,8 @@ def client(tmp_path):
         upsert_articles(s, articles)
         upsert_filings(s, filings)
         embed_pending(s)
-    return TestClient(create_app(session_factory=sf))
+    # Inject a fresh in-process cache so tests never depend on (or pollute) a real Redis.
+    return TestClient(create_app(session_factory=sf, cache=MemoryCache()))
 
 
 def test_health(client):
@@ -100,3 +102,20 @@ def test_index_served(client):
     resp = client.get("/")
     assert resp.status_code == 200
     assert "MARKET INTELLIGENCE TERMINAL" in resp.text
+
+
+def test_read_endpoint_is_cached(tmp_path):
+    engine = make_engine(f"sqlite:///{tmp_path}/cache.db")
+    init_db(engine)
+    sf = make_session_factory(engine)
+    with sf() as s:
+        upsert_articles(s, [{"url_hash": "h1", "url": "u1", "title": "first"}])
+    client = TestClient(create_app(session_factory=sf, cache=MemoryCache()))
+
+    assert len(client.get("/api/news/recent").json()) == 1
+    # Add a row directly; the cached key must still serve the stale (1-row) payload.
+    with sf() as s:
+        upsert_articles(s, [{"url_hash": "h2", "url": "u2", "title": "second"}])
+    assert len(client.get("/api/news/recent").json()) == 1  # cache hit
+    # A different param is a different cache key → bypasses the stale entry.
+    assert len(client.get("/api/news/recent?limit=10").json()) == 2
