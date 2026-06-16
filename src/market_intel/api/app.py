@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from market_intel.cache import Cache, build_cache, cached
 from market_intel.config import settings
+from market_intel.indicators import compute_indicators
 from market_intel.search import keyword_search, semantic_search
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import get_filings
@@ -46,14 +47,17 @@ def _cache_key(resource: str, *parts: object) -> str:
 
 
 def _num(value) -> float | None:
-    """Coerce to a JSON-safe number (NaN -> None)."""
+    """Coerce to a JSON-safe number (NaN/±inf -> None).
+
+    ``Infinity`` is not valid JSON, so non-finite values become ``None``.
+    """
     if value is None:
         return None
     try:
         f = float(value)
     except (TypeError, ValueError):
         return None
-    return None if math.isnan(f) else f
+    return f if math.isfinite(f) else None
 
 
 def _price_records(df: pd.DataFrame, limit: int) -> list[dict]:
@@ -68,6 +72,16 @@ def _price_records(df: pd.DataFrame, limit: int) -> list[dict]:
             "close": _num(row.get("Close")),
             "volume": _num(row.get("Volume")),
         }
+        for ts, row in df.iterrows()
+    ]
+
+
+def _indicator_records(df: pd.DataFrame, limit: int) -> list[dict]:
+    """Date-aligned indicator rows with JSON-safe (NaN -> None) values."""
+    if limit:
+        df = df.tail(limit)
+    return [
+        {"date": pd.Timestamp(ts).date().isoformat(), **{c: _num(row[c]) for c in df.columns}}
         for ts, row in df.iterrows()
     ]
 
@@ -170,6 +184,23 @@ def create_app(
             _cache_key("prices", symbol, limit),
             ttl,
             lambda: _price_records(get_prices(session, symbol), limit),
+        )
+
+    @app.get("/api/indicators/{symbol}")
+    def indicators(
+        symbol: str,
+        limit: int = Query(500, ge=0, le=10000),
+        session: Session = Depends(get_session),
+    ) -> list[dict]:
+        # Compute over the full series so warm-up NaNs don't eat the window,
+        # then trim to the trailing `limit` rows for display. An unknown symbol
+        # yields an empty frame -> empty indicator frame -> [].
+        symbol = symbol.upper()
+        return cached(
+            cache,
+            _cache_key("indicators", symbol, limit),
+            ttl,
+            lambda: _indicator_records(compute_indicators(get_prices(session, symbol)), limit),
         )
 
     @app.get("/api/macro/{series_id}")
