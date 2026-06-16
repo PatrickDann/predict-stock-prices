@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # --- Redis ---
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- Cache / live updates (Phase 2 dashboard) ---
+    cache_enabled: bool = True  # cache-aside on read endpoints; degrades to no-op if Redis is down
+    cache_ttl_seconds: int = 15  # short TTL: shields Postgres from page loads + SSE clients
+    stream_poll_seconds: float = 10.0  # how often the SSE stream checks the DB for new news
+
     # --- Data source API keys (optional in Phase 0) ---
     fred_api_key: str | None = None
     finnhub_api_key: str | None = None

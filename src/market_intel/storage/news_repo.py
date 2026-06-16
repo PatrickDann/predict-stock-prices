@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -50,3 +51,14 @@ def get_recent_articles(session: Session, limit: int = 50) -> list[NewsArticle]:
 
 def count_articles(session: Session) -> int:
     return session.query(NewsArticle).count()
+
+
+def latest_seen(session: Session) -> datetime | None:
+    """Timestamp of the most-recently-seen article (None if the table is empty).
+
+    A cheap, index-backed change signal for the live SSE stream: it advances whenever
+    GDELT ingests fresher articles, so the stream re-emits only when it changes.
+    """
+    return session.scalars(
+        select(NewsArticle.seen_date).order_by(NewsArticle.seen_date.desc().nulls_last()).limit(1)
+    ).first()
