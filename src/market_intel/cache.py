@@ -67,15 +67,15 @@ class RedisCache:
     def get_json(self, key: str) -> Any | None:
         try:
             raw = self._client.get(key)
-        except Exception:  # pragma: no cover - redis runtime/network error
+            return None if raw is None else json.loads(raw)
+        except Exception:  # redis runtime/network error OR a corrupted payload
             log.warning("cache get failed for %s", key, exc_info=True)
-            return None
-        return None if raw is None else json.loads(raw)
+            return None  # degrade to a miss → the caller falls through to the DB
 
     def set_json(self, key: str, value: Any, ttl: int) -> None:
         try:
             self._client.set(key, json.dumps(value), ex=ttl)
-        except Exception:  # pragma: no cover - redis runtime/network error
+        except Exception:  # redis runtime/network error or an unserializable value
             log.warning("cache set failed for %s", key, exc_info=True)
 
 
@@ -107,11 +107,13 @@ def cached(cache: Cache, key: str, ttl: int, producer: Callable[[], Any]) -> Any
 
     ``producer`` must return a JSON-serializable value. A ``None`` result is not cached
     (it is indistinguishable from a miss), which is fine — the endpoints return lists.
+    A non-positive ``ttl`` disables storing (so ``CACHE_TTL_SECONDS=0`` means "don't cache"
+    rather than caching forever / erroring on a zero Redis expiry).
     """
     hit = cache.get_json(key)
     if hit is not None:
         return hit
     value = producer()
-    if value is not None:
+    if value is not None and ttl > 0:
         cache.set_json(key, value, ttl)
     return value

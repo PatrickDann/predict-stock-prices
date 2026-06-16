@@ -220,9 +220,10 @@ def create_app(
         limit: int = Query(50, ge=1, le=500),
         session: Session = Depends(get_session),
     ) -> list[dict]:
+        ticker = ticker.upper()
         return cached(
             cache,
-            _cache_key("filings", ticker.upper(), limit),
+            _cache_key("filings", ticker, limit),
             ttl,
             lambda: [
                 {

@@ -79,3 +79,28 @@ def test_redis_cache_swallows_runtime_errors():
     c = RedisCache(_BoomClient())
     assert c.get_json("k") is None  # error treated as a miss
     c.set_json("k", [1], ttl=5)  # error swallowed, no raise
+
+
+class _CorruptClient:
+    """Returns a non-JSON payload — simulates a corrupted/truncated cache entry."""
+
+    def get(self, key):
+        return "{not valid json"
+
+
+def test_redis_cache_corrupted_payload_degrades_to_miss():
+    # A bad payload must be treated as a miss, not crash the request.
+    assert RedisCache(_CorruptClient()).get_json("k") is None
+
+
+def test_cached_with_nonpositive_ttl_does_not_store():
+    c = MemoryCache()
+    calls = {"n": 0}
+
+    def producer():
+        calls["n"] += 1
+        return [1]
+
+    assert cached(c, "k", 0, producer) == [1]
+    assert cached(c, "k", 0, producer) == [1]
+    assert calls["n"] == 2  # ttl<=0 disables storing → recomputed
