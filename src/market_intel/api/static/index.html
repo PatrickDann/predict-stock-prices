@@ -58,6 +58,10 @@
       .news-item a:hover { color: var(--accent); }
       .news-meta { color: var(--muted); font-size: 11px; margin-top: 3px; display: flex; gap: 8px; flex-wrap: wrap; }
       .news-meta .score { color: var(--green); }
+      .news-meta .sent { font-weight: bold; }
+      .sent-positive { color: var(--green); }
+      .sent-negative { color: var(--red); }
+      .sent-neutral { color: var(--muted); }
       .filing { padding: 6px 10px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; }
       .filing .form { color: var(--accent); min-width: 56px; }
       .filing .date { color: var(--muted); }
@@ -99,7 +103,9 @@
       </div>
 
       <div class="panel" id="news">
-        <h2>Global News <span class="tag">GDELT</span></h2>
+        <h2>Global News <span class="tag">GDELT</span>
+          <span class="stats" id="newsStats"></span>
+        </h2>
         <div class="feed-controls">
           <input id="q" type="text" placeholder="search…" onkeydown="if(event.key==='Enter')searchNews()" />
           <label><input type="checkbox" id="semantic" /> semantic</label>
@@ -233,8 +239,29 @@
         } catch (e) { setStatus("macro error: " + e.message); }
       }
 
+      // Sentiment badge: arrow + score, colored by label; nothing when unscored.
+      const SENT_ARROW = { positive: "▲", negative: "▼", neutral: "●" };
+      function sentBadge(a) {
+        const arrow = SENT_ARROW[a.sentiment_label];
+        if (!arrow) return "";  // "unknown" (not yet scored)
+        const val = a.sentiment != null ? " " + a.sentiment.toFixed(2) : "";
+        return `<span class="sent sent-${a.sentiment_label}" title="financial sentiment">${arrow}${val}</span>`;
+      }
+
+      function renderNewsStats(items) {
+        let pos = 0, neg = 0;
+        for (const a of items) {
+          if (a.sentiment_label === "positive") pos++;
+          else if (a.sentiment_label === "negative") neg++;
+        }
+        document.getElementById("newsStats").innerHTML = (pos || neg)
+          ? `<span class="sent-positive">▲ ${pos}</span> <span class="sent-negative">▼ ${neg}</span>`
+          : "";
+      }
+
       function renderNews(items) {
         const ul = document.getElementById("newsList");
+        renderNewsStats(items);
         if (!items.length) { ul.innerHTML = '<li class="empty">No articles — run the GDELT ingestor.</li>'; return; }
         ul.innerHTML = items.map((a) => `
           <li class="news-item">
@@ -243,6 +270,7 @@
               <span>${a.domain || ""}</span>
               <span>${a.source_country || ""}</span>
               <span>${a.seen_date ? a.seen_date.replace("T", " ").slice(0, 16) : ""}</span>
+              ${sentBadge(a)}
               ${a.score != null ? `<span class="score">sim ${a.score}</span>` : ""}
             </div>
           </li>`).join("");

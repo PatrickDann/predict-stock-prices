@@ -3,7 +3,12 @@
 _Roadmap item (§5, Phase 2): "Ticker-level sentiment on the news feed; **technical
 indicators on the chart**." This change delivers the **technical-indicators** half._
 
-> The ticker-level **sentiment** half is intentionally deferred: it depends on
+> _Update: the ticker-level **sentiment** half shipped separately — see
+> [news-sentiment.md](news-sentiment.md). It used a self-contained, dependency-free
+> Loughran–McDonald-inspired lexicon baseline (FinBERT remains the Phase-3 drop-in),
+> resolving the "not self-contained" concern noted below._
+>
+> The ticker-level **sentiment** half was initially deferred: it seemed to depend on
 > FinBERT scoring (an explicit Phase-3 deliverable) or a keyed external sentiment
 > API (Marketaux/Finnhub), neither of which is self-contained at this point. Technical
 > indicators compute purely from price data already in Postgres, so they ship cleanly now.

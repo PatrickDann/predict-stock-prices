@@ -84,6 +84,8 @@ class NewsArticle(Base):
     source_country: Mapped[str | None] = mapped_column(String(80), nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON_OR_JSONB, nullable=True)
     embedding: Mapped[list[float] | None] = mapped_column(EMBEDDING_TYPE, nullable=True)
+    # Financial-sentiment polarity in [-1, 1]; NULL until scored (see sentiment.py).
+    sentiment: Mapped[float | None] = mapped_column(Float, nullable=True)
     source: Mapped[str] = mapped_column(String(40), default="GDELT", nullable=False)
 
     def __repr__(self) -> str:  # pragma: no cover - debug aid
