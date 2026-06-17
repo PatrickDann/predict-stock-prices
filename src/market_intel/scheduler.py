@@ -19,7 +19,7 @@ from market_intel.ingest.filings import ingest_edgar
 from market_intel.ingest.macro import ingest_fred
 from market_intel.ingest.market import ingest_from_csv
 from market_intel.ingest.news import ingest_gdelt
-from market_intel.search import embed_pending
+from market_intel.search import embed_pending, score_sentiment_pending
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +60,12 @@ def ingest_gdelt_job(queries: Sequence[str], session_factory, timespan: str = "1
                 log.info("embedded %d new articles", embedded)
         except Exception:
             log.exception("embedding pending articles failed")
+        try:
+            scored = score_sentiment_pending(session)  # keep feed sentiment up to date
+            if scored:
+                log.info("scored sentiment for %d new articles", scored)
+        except Exception:
+            log.exception("scoring sentiment for pending articles failed")
 
 
 def ingest_edgar_job(tickers: Sequence[str], session_factory) -> None:

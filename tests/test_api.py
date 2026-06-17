@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from market_intel.api.app import _num, create_app
-from market_intel.search import embed_pending
+from market_intel.search import embed_pending, score_sentiment_pending
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import upsert_filings
 from market_intel.storage.macro_repo import upsert_macro
@@ -35,7 +35,7 @@ def client(tmp_path):
     )
     articles = [
         {"url_hash": "h1", "url": "u1", "title": "Oil supply disruption at remote port"},
-        {"url_hash": "h2", "url": "u2", "title": "Central bank decision on rates"},
+        {"url_hash": "h2", "url": "u2", "title": "Shares plunge on losses and recession fears"},
     ]
     filings = [{"accession_no": "a-1", "cik": "0000320193", "ticker": "AAPL", "form": "10-K"}]
     with sf() as s:
@@ -44,6 +44,7 @@ def client(tmp_path):
         upsert_articles(s, articles)
         upsert_filings(s, filings)
         embed_pending(s)
+        score_sentiment_pending(s)
     return TestClient(create_app(session_factory=sf))
 
 
@@ -114,6 +115,22 @@ def test_news_recent(client):
     rows = client.get("/api/news/recent").json()
     assert len(rows) == 2
     assert "title" in rows[0] and "seen_date" in rows[0]
+    assert {"sentiment", "sentiment_label"} <= rows[0].keys()
+
+
+def test_news_sentiment_labels(client):
+    by_url = {r["url"]: r for r in client.get("/api/news/recent").json()}
+    # "Bank shares plunge on mounting losses and recession fears" -> clearly negative
+    assert by_url["u2"]["sentiment_label"] == "negative"
+    assert by_url["u2"]["sentiment"] < 0
+    # The oil headline carries no lexicon polarity -> neutral, score 0.0
+    assert by_url["u1"]["sentiment_label"] == "neutral"
+    assert by_url["u1"]["sentiment"] == 0.0
+
+
+def test_news_search_includes_sentiment(client):
+    rows = client.get("/api/news/search?q=plunge").json()
+    assert rows and rows[0]["sentiment_label"] == "negative"
 
 
 def test_news_search_keyword(client):

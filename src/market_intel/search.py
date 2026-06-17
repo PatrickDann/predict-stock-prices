@@ -13,6 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from market_intel.embeddings import Embedder, cosine_similarity, get_default_embedder
+from market_intel.sentiment import SentimentAnalyzer, get_default_analyzer
 from market_intel.storage.models import NewsArticle
 
 
@@ -33,6 +34,25 @@ def embed_pending(session: Session, embedder: Embedder | None = None, limit: int
     vectors = embedder.encode([r.title for r in rows])
     for row, vec in zip(rows, vectors, strict=True):
         row.embedding = vec
+    session.commit()
+    return len(rows)
+
+
+def score_sentiment_pending(
+    session: Session, analyzer: SentimentAnalyzer | None = None, limit: int = 500
+) -> int:
+    """Compute + store financial sentiment for articles not yet scored."""
+    analyzer = analyzer or get_default_analyzer()
+    rows = list(
+        session.scalars(
+            select(NewsArticle).where(NewsArticle.sentiment.is_(None)).limit(limit)
+        ).all()
+    )
+    if not rows:
+        return 0
+    scores = analyzer.score([r.title for r in rows])
+    for row, value in zip(rows, scores, strict=True):
+        row.sentiment = value
     session.commit()
     return len(rows)
 

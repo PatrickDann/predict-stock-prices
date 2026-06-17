@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from market_intel.indicators import compute_indicators
 from market_intel.search import keyword_search, semantic_search
+from market_intel.sentiment import classify
 from market_intel.storage.db import init_db, make_engine, make_session_factory
 from market_intel.storage.filings_repo import get_filings
 from market_intel.storage.macro_repo import get_macro
@@ -64,6 +65,7 @@ def _indicator_records(df: pd.DataFrame, limit: int) -> list[dict]:
 
 
 def _article_record(article, score: float | None = None) -> dict:
+    sentiment = _num(article.sentiment)
     record = {
         "title": article.title,
         "url": article.url,
@@ -71,6 +73,8 @@ def _article_record(article, score: float | None = None) -> dict:
         "language": article.language,
         "source_country": article.source_country,
         "seen_date": article.seen_date.isoformat() if article.seen_date else None,
+        "sentiment": round(sentiment, 4) if sentiment is not None else None,
+        "sentiment_label": classify(sentiment),
     }
     if score is not None:
         record["score"] = round(float(score), 4)
