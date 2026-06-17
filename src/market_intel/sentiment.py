@@ -90,7 +90,7 @@ class LexiconSentiment:
         return [self._score_one(t) for t in texts]
 
     @staticmethod
-    def _score_one(text: str) -> float:
+    def _score_one(text: str | None) -> float:
         pos = neg = 0
         negate_for = 0  # tokens remaining in an active negation window
         for token in _TOKEN_RE.findall((text or "").lower()):
@@ -98,14 +98,13 @@ class LexiconSentiment:
                 negate_for = _NEGATION_WINDOW
                 continue
             polarity = _POLARITY.get(token, 0)
-            if polarity:
-                if negate_for > 0:
-                    polarity = -polarity
-                    negate_for = 0  # one flip per negator
-                if polarity > 0:
-                    pos += 1
-                else:
-                    neg += 1
+            if polarity and negate_for > 0:
+                polarity = -polarity
+                negate_for = 0  # one flip per negator
+            if polarity > 0:
+                pos += 1
+            elif polarity < 0:
+                neg += 1
             if negate_for > 0:
                 negate_for -= 1
         total = pos + neg

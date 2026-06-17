@@ -120,7 +120,7 @@ def test_news_recent(client):
 
 def test_news_sentiment_labels(client):
     by_url = {r["url"]: r for r in client.get("/api/news/recent").json()}
-    # "Bank shares plunge on mounting losses and recession fears" -> clearly negative
+    # "Shares plunge on losses and recession fears" -> clearly negative
     assert by_url["u2"]["sentiment_label"] == "negative"
     assert by_url["u2"]["sentiment"] < 0
     # The oil headline carries no lexicon polarity -> neutral, score 0.0

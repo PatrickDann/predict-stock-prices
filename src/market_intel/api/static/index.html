@@ -249,8 +249,11 @@
       }
 
       function renderNewsStats(items) {
-        const pos = items.filter((a) => a.sentiment_label === "positive").length;
-        const neg = items.filter((a) => a.sentiment_label === "negative").length;
+        let pos = 0, neg = 0;
+        for (const a of items) {
+          if (a.sentiment_label === "positive") pos++;
+          else if (a.sentiment_label === "negative") neg++;
+        }
         document.getElementById("newsStats").innerHTML = (pos || neg)
           ? `<span class="sent-positive">▲ ${pos}</span> <span class="sent-negative">▼ ${neg}</span>`
           : "";
