@@ -5,6 +5,7 @@ Requires a running Postgres (``docker compose up -d``). FRED jobs need
 
 Usage:
     python src/worker.py --market AAPL MSFT --fred GDP CPIAUCSL
+    python src/worker.py --dbnomics "IMF/WEO:latest/USA.NGDP_RPCH"   # keyless
 """
 
 from __future__ import annotations
@@ -26,6 +27,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--market", nargs="*", default=[], help="tickers to ingest from CSV")
     p.add_argument("--dataset", default=None, help="CSV dataset stem for --market")
     p.add_argument("--fred", nargs="*", default=[], help="FRED series ids, e.g. GDP CPIAUCSL")
+    p.add_argument(
+        "--dbnomics",
+        nargs="*",
+        default=[],
+        help="DBnomics PROVIDER/DATASET/SERIES ids, e.g. 'IMF/WEO:latest/USA.NGDP_RPCH' (no key)",
+    )
     p.add_argument("--gdelt", nargs="*", default=[], help="GDELT queries, e.g. 'oil supply'")
     p.add_argument("--edgar", nargs="*", default=[], help="tickers for SEC EDGAR filings")
     args = p.parse_args(argv)
@@ -44,6 +51,7 @@ def main(argv: list[str] | None = None) -> None:
         market_dataset=args.dataset,
         fred_series=args.fred,
         fred_api_key=settings.fred_api_key,
+        dbnomics_series=args.dbnomics,
         gdelt_queries=args.gdelt,
         edgar_tickers=args.edgar,
         data_dir=str(settings.data_dir),
@@ -51,7 +59,10 @@ def main(argv: list[str] | None = None) -> None:
 
     jobs = sched.get_jobs()
     if not jobs:
-        print("No jobs configured. Pass --market and/or --fred (with FRED_API_KEY set).")
+        print(
+            "No jobs configured. Pass one or more of "
+            "--market / --fred (needs FRED_API_KEY) / --dbnomics / --gdelt / --edgar."
+        )
         return
     print("Scheduled jobs:")
     for job in jobs:
