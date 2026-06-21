@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from market_intel.ingest.dbnomics import ingest_dbnomics
 from market_intel.ingest.filings import ingest_edgar
 from market_intel.ingest.macro import ingest_fred
 from market_intel.ingest.market import ingest_from_csv
@@ -32,6 +33,16 @@ def ingest_fred_job(series_ids: Sequence[str], api_key: str, session_factory) ->
                 log.info("FRED %s: ingested %d rows", sid, n)
             except Exception:
                 log.exception("FRED ingest failed for %s", sid)
+
+
+def ingest_dbnomics_job(series_ids: Sequence[str], session_factory) -> None:
+    with session_factory() as session:
+        for sid in series_ids:
+            try:
+                n = ingest_dbnomics(session, sid)
+                log.info("DBnomics %s: ingested %d rows", sid, n)
+            except Exception:
+                log.exception("DBnomics ingest failed for %s", sid)
 
 
 def ingest_market_csv_job(
@@ -77,6 +88,7 @@ def build_scheduler(
     *,
     fred_series: Sequence[str] = (),
     fred_api_key: str | None = None,
+    dbnomics_series: Sequence[str] = (),
     market_tickers: Sequence[str] = (),
     market_dataset: str | None = None,
     data_dir: str = "data",
@@ -125,5 +137,14 @@ def build_scheduler(
                 id="fred-daily",
                 replace_existing=True,
             )
+
+    if dbnomics_series:
+        sched.add_job(
+            ingest_dbnomics_job,
+            CronTrigger(hour=8, minute=15),  # keyless; just after FRED
+            args=[list(dbnomics_series), session_factory],
+            id="dbnomics-daily",
+            replace_existing=True,
+        )
 
     return sched

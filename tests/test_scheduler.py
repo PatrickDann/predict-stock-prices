@@ -15,11 +15,18 @@ def test_registers_all_jobs():
         market_tickers=["AAPL"],
         fred_series=["GDP", "CPIAUCSL"],
         fred_api_key="KEY",
+        dbnomics_series=["IMF/WEO:latest/USA.NGDP_RPCH"],
         gdelt_queries=["oil supply"],
         edgar_tickers=["AAPL"],
     )
     jobs = {j.id: j for j in sched.get_jobs()}
-    assert set(jobs) == {"market-csv-daily", "fred-daily", "gdelt-news", "edgar-daily"}
+    assert set(jobs) == {
+        "market-csv-daily",
+        "fred-daily",
+        "dbnomics-daily",
+        "gdelt-news",
+        "edgar-daily",
+    }
     assert all(isinstance(j.trigger, CronTrigger) for j in jobs.values())
 
 
