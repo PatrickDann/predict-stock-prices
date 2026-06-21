@@ -45,6 +45,15 @@ def test_parse_falls_back_to_period_label():
     assert df["value"].tolist() == [1.0, 2.0]
 
 
+def test_parse_prefers_period_start_day_over_period():
+    # Distinguishable dates: the period label "2020" would resolve to 2020-01-01,
+    # so landing on 2020-06-15 proves period_start_day is used, not the label.
+    df = parse_dbnomics_series(
+        _payload([{"period": ["2020"], "period_start_day": ["2020-06-15"], "value": [1.0]}])
+    )
+    assert df.index.tolist() == [pd.Timestamp("2020-06-15")]
+
+
 def test_parse_truncates_misaligned_arrays():
     # A malformed payload with more dates than values must not raise.
     df = parse_dbnomics_series(
@@ -105,7 +114,9 @@ def test_ingest_dbnomics_end_to_end_and_idempotent(tmp_path):
         def json(self):
             return PAYLOAD
 
-    fake_get = lambda *a, **k: FakeResp()  # noqa: E731
+    def fake_get(*a, **k):
+        return FakeResp()
+
     sid = "Eurostat/namq_10_gdp/Q.CLV10_MEUR.SCA.B1GQ.DE"
 
     with sf() as s:
@@ -122,3 +133,20 @@ def test_ingest_dbnomics_end_to_end_and_idempotent(tmp_path):
         ingest_dbnomics(s, sid, get=fake_get)
     with sf() as s:
         assert s.query(MacroSeries).filter_by(series_id=sid).count() == 2
+
+
+def test_ingest_empty_series_is_a_noop(tmp_path):
+    # An unknown/empty series (no docs) must validate+ingest to 0 rows, not crash.
+    engine = make_engine(f"sqlite:///{tmp_path}/t.db")
+    init_db(engine)
+    sf = make_session_factory(engine)
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"series": {"docs": []}}
+
+    with sf() as s:
+        assert ingest_dbnomics(s, "X/Y/Z", get=lambda *a, **k: FakeResp()) == 0

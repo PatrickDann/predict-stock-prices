@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> None:
         "--dbnomics",
         nargs="*",
         default=[],
-        help="DBnomics series ids, e.g. 'IMF/WEO:latest/USA.NGDP_RPCH' (no key)",
+        help="DBnomics PROVIDER/DATASET/SERIES ids, e.g. 'IMF/WEO:latest/USA.NGDP_RPCH' (no key)",
     )
     p.add_argument("--gdelt", nargs="*", default=[], help="GDELT queries, e.g. 'oil supply'")
     p.add_argument("--edgar", nargs="*", default=[], help="tickers for SEC EDGAR filings")
@@ -59,7 +59,10 @@ def main(argv: list[str] | None = None) -> None:
 
     jobs = sched.get_jobs()
     if not jobs:
-        print("No jobs configured. Pass --market and/or --fred (with FRED_API_KEY set).")
+        print(
+            "No jobs configured. Pass one or more of "
+            "--market / --fred (needs FRED_API_KEY) / --dbnomics / --gdelt / --edgar."
+        )
         return
     print("Scheduled jobs:")
     for job in jobs:

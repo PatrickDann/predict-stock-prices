@@ -67,7 +67,7 @@ def parse_dbnomics_series(payload: dict) -> pd.DataFrame:
     # The arrays are parallel; guard against a malformed payload misaligning them.
     n = min(len(dates), len(values))
 
-    frame = pd.DataFrame({"Date": dates[:n], "value": values[:n]}, columns=["Date", "value"])
+    frame = pd.DataFrame({"Date": dates[:n], "value": values[:n]})
     frame["Date"] = pd.to_datetime(frame["Date"], errors="coerce")
     frame["value"] = pd.to_numeric(frame["value"], errors="coerce")  # "NA" -> NaN
     frame = frame.dropna(subset=["Date", "value"]).set_index("Date").sort_index()

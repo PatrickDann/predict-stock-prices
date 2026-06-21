@@ -50,7 +50,12 @@ are longer than FRED's; the widest real ids (~45 chars) exceed the current
 `String(40)` PK column, so widen `MacroSeries.series_id` to `String(128)`.
 The project has no migration framework (it uses `create_all`); widening the
 model is the correct, low-risk change (SQLite ignores length; fresh Postgres
-picks up 128).
+picks up 128). **Caveat:** `create_all` does not `ALTER` an *already-existing*
+`macro_series` table, so an operator with a pre-Phase-1 Postgres deployment must
+run `ALTER TABLE macro_series ALTER COLUMN series_id TYPE VARCHAR(128);` once
+before ingesting long DBnomics ids (FRED ids ≤40 chars are unaffected). The
+scheduled job's per-item `try/except` turns a too-long id into a logged skip,
+not a crash; the one-shot CLI would surface the DB error directly.
 
 **Scheduling:** `ingest_dbnomics_job(series_ids, session_factory)` in
 `scheduler.py` (per-item try/except like every other job), registered by
